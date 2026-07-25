@@ -1,0 +1,9 @@
+__pycache__/
+*.pyc
+.DS_Store
+venv/
+.env
+data/ssq.db
+*.egg-info/
+dist/
+build/
