@@ -1,0 +1,96 @@
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  background: #0a0e17;
+  color: #e0e6f0;
+  line-height: 1.6;
+}
+.container { max-width: 900px; margin: 0 auto; padding: 20px; }
+
+/* 头部 */
+header { text-align: center; padding: 30px 0; border-bottom: 1px solid #1a2340; }
+header h1 { font-size: 28px; color: #f1c40f; letter-spacing: 2px; }
+.subtitle { color: #7f8fa6; font-size: 14px; margin-top: 8px; }
+
+/* 卡片通用 */
+.card {
+  background: #111827;
+  border: 1px solid #1e2d50;
+  border-radius: 12px;
+  padding: 16px;
+}
+.card-label { font-size: 12px; color: #7f8fa6; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 1px; }
+.card-value { font-size: 24px; font-weight: 700; color: #f0f4ff; }
+.card-value small { font-size: 14px; color: #7f8fa6; font-weight: 400; }
+.card-trend { font-size: 12px; color: #5a6a8a; margin-top: 4px; }
+
+/* 仪表盘网格 */
+.dashboard-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+
+/* 进度条 */
+.meter { margin-top: 8px; }
+.meter-bar { height: 6px; border-radius: 3px; transition: width 0.5s; }
+.meter-labels { display: flex; justify-content: space-between; font-size: 10px; color: #5a6a8a; margin-top: 2px; }
+
+/* 预测列表 */
+.section h2 { font-size: 18px; margin: 24px 0 12px; color: #f0f4ff; }
+.section h2 small { font-size: 12px; color: #5a6a8a; }
+h2 { font-size: 18px; margin: 24px 0 12px; color: #f0f4ff; }
+h2 small { font-size: 12px; color: #5a6a8a; }
+
+.prediction-item {
+  display: flex; align-items: center;
+  background: #111827; border: 1px solid #1e2d50; border-radius: 10px;
+  padding: 12px 16px; margin-bottom: 8px; gap: 12px;
+}
+.prediction-item.passed { border-left: 3px solid #2ecc71; }
+.prediction-item.border-warn { border-left: 3px solid #f39c12; }
+.pred-rank { font-size: 14px; font-weight: 700; color: #f1c40f; min-width: 28px; }
+.pred-numbers { flex: 1; display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+.ball {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: 50%;
+  font-size: 13px; font-weight: 700;
+}
+.red-ball { background: #e74c3c; color: #fff; }
+.blue-ball { background: #3498db; color: #fff; padding: 4px 8px; border-radius: 4px; margin-left: 4px; font-size: 13px; }
+.pred-scores { display: flex; gap: 8px; font-size: 12px; white-space: nowrap; }
+.pred-badge { font-size: 11px; padding: 2px 8px; border-radius: 4px; }
+.badge-pass { background: #1a3a2a; color: #2ecc71; }
+.badge-warn { background: #3a2a1a; color: #f39c12; }
+
+/* 热度网格 */
+.pop-grid { display: grid; grid-template-columns: 2fr 2fr 1fr; gap: 12px; margin-top: 12px; }
+.num-chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
+.chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 4px 10px; border-radius: 12px; font-size: 12px; font-weight: 600;
+}
+.chip-hot { background: #3a1a1a; color: #e74c3c; border: 1px solid #5a2a2a; }
+.chip-cold { background: #1a1a3a; color: #3498db; border: 1px solid #2a2a5a; }
+
+/* 验证面板 */
+.review-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+.red-ball-sm { display: inline-flex; width: 28px; height: 28px; border-radius: 50%; background: #e74c3c; color: #fff; font-size: 11px; align-items: center; justify-content: center; }
+.blue-ball-sm { display: inline-flex; width: 28px; height: 28px; border-radius: 50%; background: #3498db; color: #fff; font-size: 11px; align-items: center; justify-content: center; }
+.no-data { color: #5a6a8a; font-size: 14px; padding: 20px; text-align: center; }
+
+/* 复式推荐 */
+.compound-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; margin-top: 12px; }
+.compound-card { display: flex; flex-direction: column; gap: 8px; }
+.compound-header { display: flex; justify-content: space-between; align-items: center; }
+.compound-name { font-size: 16px; font-weight: 700; color: #f1c40f; }
+.compound-desc { font-size: 11px; color: #5a6a8a; }
+.compound-label { font-size: 11px; color: #7f8fa6; margin-top: 4px; }
+.chip-red { background: #3a1a1a; color: #e74c3c; border: 1px solid #5a2a2a; }
+.chip-blue { background: #1a1a3a; color: #3498db; border: 1px solid #2a2a5a; }
+.compound-stats { display: flex; justify-content: space-around; font-size: 12px; color: #7f8fa6; border-top: 1px solid #1e2d50; padding-top: 8px; margin-top: 4px; }
+
+/* 底部 */
+footer { text-align: center; padding: 30px 0; color: #3a4a6a; font-size: 12px; border-top: 1px solid #1a2340; margin-top: 40px; }
+.disclaimer { color: #5a3a1a; margin-top: 8px; }
+
+/* 滚动条 */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: #0a0e17; }
+::-webkit-scrollbar-thumb { background: #1e2d50; border-radius: 3px; }

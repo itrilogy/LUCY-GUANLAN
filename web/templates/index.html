@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>双色球预测分析</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#0a0e17;color:#e0e6f0;font-size:14px}
+.container{max-width:1100px;margin:0 auto;padding:10px}
+header{text-align:center;padding:12px 0;border-bottom:1px solid #1a2340}
+header h1{font-size:20px;color:#f1c40f;letter-spacing:2px}
+h1{font-size:22px;color:#f1c40f;letter-spacing:2px}
+.sub{color:#7f8fa6;font-size:11px;margin-top:4px}
+.tabs{display:flex;margin:8px 0;border-bottom:2px solid #1e2d50}
+.tab{flex:1;padding:8px;text-align:center;cursor:pointer;color:#5a6a8a;font-size:13px;border-bottom:2px solid transparent;transition:.2s;user-select:none}
+.tab:hover{color:#e0e6f0}
+.tab.active{color:#f1c40f;border-bottom-color:#f1c40f;font-weight:700}
+.tc{display:none}.tc.active{display:block}
+/* 顶栏 + 按钮卡 */
+.tr{display:flex;gap:6px;margin:6px 0}
+.tc2{flex:1;background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:8px;display:flex;flex-direction:column}
+.tl{font-size:9px;color:#7f8fa6;letter-spacing:1px}
+.tv{font-size:16px;font-weight:700;color:#f0f4ff;margin-top:2px}
+.ts{font-size:9px;color:#5a6a8a;margin-top:2px}
+.meter{height:4px;background:#1e2d50;border-radius:2px;margin-top:4px;overflow:hidden}
+.mf{height:100%;border-radius:2px;transition:width .5s}
+.btn{padding:6px 12px;background:linear-gradient(135deg,#f1c40f,#f39c12);border:none;border-radius:6px;color:#0a0e17;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;align-self:center}
+.btn:hover{transform:scale(1.02)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.prog{width:100%;height:12px;background:#1e2d50;border-radius:4px;overflow:hidden;margin-top:4px}
+.pf{height:100%;width:0%;background:linear-gradient(90deg,#2ecc71,#f1c40f,#e74c3c);transition:width .4s;font-size:8px;line-height:12px;text-align:center;color:#0a0e17;font-weight:700;border-radius:4px}
+.pl{font-size:10px;color:#7f8fa6;text-align:center;margin-top:2px}
+
+/* 推荐双列 */
+.pg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-top:6px}
+.pi{display:flex;align-items:center;background:#111827;border:1px solid #1e2d50;border-radius:6px;padding:4px 8px;gap:4px}
+.pn{font-size:10px;color:#f1c40f;font-weight:700;min-width:14px}
+.pb{display:flex;align-items:center;gap:1px;flex-wrap:wrap}
+.bl{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#e74c3c;color:#fff}
+.cp2 .bl{width:19px;height:19px;font-size:8px}
+.bd{background:#3498db;border-radius:3px;padding:2px 4px;font-size:9px;margin-left:2px;color:#fff}
+.pm{font-size:9px;color:#7f8fa6;margin-left:auto;white-space:nowrap}
+/* 复式三列 */
+.cg{display:flex;flex-wrap:nowrap;gap:6px;margin-top:6px}
+.cc{background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:6px;flex:1;min-width:0}
+.ch{display:flex;justify-content:space-between;align-items:center}
+.cn{font-size:13px;font-weight:700;color:#f1c40f}
+.cd{font-size:9px;color:#5a6a8a}
+.cp2{display:flex;flex-wrap:nowrap;gap:2px;margin:3px 0;overflow-x:auto}
+.chp{display:inline-flex;padding:2px 5px;border-radius:6px;font-size:9px;font-weight:600}
+.cr{background:#3a1a1a;color:#e74c3c;border:1px solid #5a2a2a}
+.cb{background:#1a1a3a;color:#3498db;border:1px solid #2a2a5a}
+.cs{display:flex;justify-content:space-around;font-size:9px;color:#7f8fa6;border-top:1px solid #1e2d50;padding-top:4px;margin-top:3px}
+/* 步骤 */
+.sb{margin-top:6px;max-height:160px;overflow-y:auto}
+.sr{display:flex;align-items:center;padding:3px 6px;font-size:10px;gap:4px;border-bottom:1px solid #1a2340}
+.sn{color:#5a6a8a;min-width:14px}
+.sbl{width:14px;height:14px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:#fff}
+.sba{flex:1;height:8px;background:#1e2d50;border-radius:2px;overflow:hidden}
+.sbf2{height:100%;border-radius:2px;transition:width .5s}
+.sp{color:#5a6a8a;min-width:28px;text-align:right;font-size:8px}
+
+/* 历史图表 — 连续柱状图 */
+.cw{overflow-x:auto;padding:6px 0}
+.cht{display:flex;align-items:flex-end;height:110px;width:100%;border-bottom:1px solid #1e2d50;padding-bottom:16px;position:relative}
+.bar-w{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0}
+.bar2{width:100%;border-radius:1px 1px 0 0;min-height:3px;flex-shrink:0}
+.cl2{font-size:7px;color:#5a6a8a;text-align:center;margin-top:2px;white-space:nowrap}
+/* 折线图容器 */
+.line-chart{position:relative;height:110px;width:100%;overflow:hidden}
+.line-svg{width:100%;height:100%}
+
+/* 33+16网格——连续表格 */
+.zt{overflow-x:auto;margin-top:6px}
+.zt table{border-collapse:collapse;width:100%;font-size:7px}
+.zt th{background:#1a1a2a;color:#5a6a8a;font-weight:400;padding:2px 1px;text-align:center;border-bottom:1px solid #1e2d50;height:16px;font-size:7px}
+.zt td{text-align:center;padding:1px 1px;height:14px;width:2.5%;border:none;content-visibility:auto}
+.zt .hdr-red{color:#e74c3c;font-weight:700}
+.zt .hdr-blue{color:#3498db;font-weight:700}
+.cell-on{background:#e74c3c;color:#fff;border-radius:50%;font-weight:700;font-size:6px;display:inline-flex;width:12px;height:12px;align-items:center;justify-content:center}
+.cell-off{color:#2a2a4a;font-size:6px}
+.cell-b-on{background:#3498db;color:#fff;border-radius:50%;font-weight:700;font-size:6px;display:inline-flex;width:12px;height:12px;align-items:center;justify-content:center}
+.cell-b-off{color:#1a2a4a;font-size:6px}
+.zt .iss-col{color:#5a6a8a;text-align:right;padding-right:4px;width:30px;font-size:6px;border-right:1px solid #1e2d50}
+.zt .sep-col{width:4px;background:#1e2d50;padding:0}
+
+.card2{background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:10px;margin-bottom:8px}
+.ct{font-size:13px;color:#f0f4ff;margin-bottom:6px;font-weight:600}
+/* 三区概况 */
+.zs{display:flex;gap:10px;text-align:center}
+.zc{flex:1;background:#1a1a2a;border-radius:8px;padding:8px}
+.zv{font-size:20px;font-weight:700}
+.zl{font-size:10px;color:#7f8fa6}
+/* Regime网格居中 */
+.rg{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px}
+.rc{background:#111827;border:1px solid #1e2d50;border-radius:6px;padding:8px;text-align:center}
+.rv{font-size:18px;font-weight:700}
+.rl{font-size:11px;color:#7f8fa6}
+.rs{font-size:9px;color:#5a6a8a}
+.sn2{display:flex;justify-content:center;gap:1px;flex-wrap:wrap;margin:4px 0}
+.snm{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:8px}
+.snr{background:#e74c3c;color:#fff}
+.snb{background:#3498db;color:#fff}
+
+h3{font-size:14px;color:#f0f4ff;margin:10px 0 6px}
+h3 small{font-size:10px;color:#5a6a8a;font-weight:400}
+footer{text-align:center;padding:14px 0;color:#3a4a6a;font-size:10px;border-top:1px solid #1a2340;margin-top:20px}
+.warn{color:#5a3a1a;font-size:10px;margin-top:4px}
+::-webkit-scrollbar{width:3px}
+::-webkit-scrollbar-track{background:#0a0e17}
+::-webkit-scrollbar-thumb{background:#1e2d50;border-radius:2px}
+</style>
+</head>
+<body>
+<script>document.body.setAttribute('data-js','active')</script>
+<div class="container">
+<header style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0">
+  <h1 style="font-size:18px;margin:0;color:#f1c40f">双色球预测</h1>
+  <span class="sub" id="hi" style="font-size:10px;flex:1">加载中...<span id="vTag" style="display:none">v3</span></span>
+  <button class="btn" style="font-size:10px;padding:4px 8px" onclick="runFast()">▶ 快速</button>
+  <button class="btn" style="font-size:10px;padding:4px 8px;background:linear-gradient(135deg,#9b59b6,#8e44ad)" onclick="runFull()">🧬全量</button>
+  <button class="btn" style="font-size:10px;padding:4px 8px;background:linear-gradient(135deg,#2ecc71,#27ae60)" onclick="updateData()">📥更新</button>
+  <button class="btn" style="font-size:10px;padding:4px 8px;background:linear-gradient(135deg,#e67e22,#d35400)" onclick="saveComparison()">💾保存</button>
+  <div class="prog" style="width:120px;height:10px;margin-left:4px"><div class="pf" id="pf"></div></div>
+  <span class="pl" id="pl" style="font-size:9px;color:#7f8fa6;min-width:60px">就绪</span>
+</header>
+<div class="tabs">
+  <div class="tab active" onclick="sw('pred')">🔮 推理预测</div>
+  <div class="tab" onclick="sw('cmp')">📊 预测对照</div>
+</div>
+<div id="tp" class="tc active"></div>
+<div id="tcmp" class="tc"></div>
+<footer><p>数据来源: 500.com | <span id="ft">就绪</span> | v4<script>document.getElementById('ft').textContent+=' JS_OK'</script></p><p class="warn">⚠ 基于统计模型，号码为随机过程，不构成中奖保证</p></footer></div>
+<script>
+window.onerror=function(msg,url,line){document.getElementById('ft').textContent+=' ERR:'+msg+' L:'+line;return true;};
+let D=null,H=null,H_HTML='',CMP=null;
+async function get(u){let r=await fetch(u);return await r.json()}
+function sw(n){
+  document.querySelectorAll('.tab,.tc').forEach(e=>e.classList.remove('active'));
+  document.querySelector(`.tab[onclick*="${n}"]`).classList.add('active');
+  document.getElementById('t'+(n==='cmp'?'cmp':n[0])).classList.add('active');
+  if(n==='cmp')loadComparisonPage();
+}
+(async()=>{
+  try{
+    let s=await get('/api/status');
+    hi.textContent='第 '+s.data_version+' 期 · '+s.total_draws+' 期历史数据';
+    D=await get('/api/predict');render();rd(D);ft.textContent='已更新';
+    loadHistory();
+  }catch(e){console.error('Init error:',e);ft.textContent='初始化失败: '+e.message;}
+})();
+function $(i){return document.getElementById(i)}
+function sleep(m){return new Promise(r=>setTimeout(r,m))}
+
+function render(){
+  let d=D,h='',pe=(d.market.pool/1e8).toFixed(2),be=(d.market.bet/1e8).toFixed(2);
+  let rC=d.market.regime==='放水'?'#e74c3c':d.market.regime==='平衡'?'#f39c12':'#3498db';
+  let rW=d.market.regime==='放水'?'80%':d.market.regime==='平衡'?'50%':'20%';
+  h+=`<div class="tr">
+    <div class="tc2"><div class="tl">市场状态</div><div class="tv" style="color:${rC}">${d.market.regime}</div>
+      <div class="meter"><div class="mf" style="width:${rW};background:${rC}"></div></div><div class="ts">蓄水←平衡→放水</div></div>
+    <div class="tc2"><div class="tl">奖池</div><div class="tv">${pe}<small style="font-size:11px;color:#7f8fa6">亿</small></div>
+      <div class="ts">预测${(d.market.predicted_pool_range[0]/1e8).toFixed(1)}~${(d.market.predicted_pool_range[1]/1e8).toFixed(1)}亿</div></div>
+    <div class="tc2"><div class="tl">投注总额</div><div class="tv">${be}<small style="font-size:11px;color:#7f8fa6">亿</small></div>
+      <div class="ts">${['崩溃态','蓄水态','大奖态','增长态','成熟态'][parseInt(d.market.regime_id)]||('Regime '+d.market.regime_id)}</div></div>
+    <div class="tc2"><div class="tl">热门号码</div><div class="tv" style="font-size:12px">${d.popularity.hot.slice(0,6).join(',')}</div>
+      <div class="ts">生日号效应 ${d.popularity.birthday_effect}x</div></div>
+  </div>`;
+  let allP=[...d.predictions],rCnt={},bCnt={};
+  d.predictions.forEach(p=>{p.reds.forEach(r=>{rCnt[r]=(rCnt[r]||0)+1});bCnt[p.blue]=(bCnt[p.blue]||0)+1});
+  let sortedR=Object.entries(rCnt).sort((a,b)=>b[1]-a[1]);
+  let topR=sortedR.slice(0,6).map(e=>parseInt(e[0])).sort((a,b)=>a-b);
+  let r2=sortedR.slice(6,12).map(e=>parseInt(e[0])).sort((a,b)=>a-b);
+  let topB=parseInt(Object.entries(bCnt).sort((a,b)=>b[1]-a[1])[0][0]);
+  let topB2=parseInt(Object.entries(bCnt).sort((a,b)=>b[1]-a[1])[1][0])||topB;
+  allP.push({rank:11,reds:topR,blue:topB,consistency:0.30,cost:0,est_prize1:5});
+  allP.push({rank:12,reds:r2,blue:topB2,consistency:0.30,cost:0,est_prize1:5});
+  h+=`<h3>推荐号码 <small>第1-10注基于全验证池双向验证 · 第11-12注为top10频率聚合</small></h3><div class="pg">`;
+  allP.forEach(p=>{
+    let rb=p.reds.map(r=>`<span class="bl">${String(r).padStart(2,'0')}</span>`).join('');
+    h+=`<div class="pi"><span class="pn">#${p.rank}</span>
+      <span class="pb">${rb}<span class="bl" style="background:#3498db">${String(p.blue).padStart(2,'0')}</span></span>
+      <span class="pm">⭐${(p.consistency*100).toFixed(0)}% 💰${p.cost.toFixed(1)} 🎯${p.est_prize1}注</span></div>`;
+  });
+  h+=`</div>`;
+  h+=`<h3>复式推荐 <small>基于全验证池贪心加权</small></h3><div class="cg">`;
+  D.compound_plans.forEach(c=>{
+    let allBalls=c.reds.map(r=>`<span class="bl">${String(r).padStart(2,'0')}</span>`).concat(c.blues.map(b=>`<span class="bl" style="background:#3498db">${String(b).padStart(2,'0')}</span>`)).join('');
+    h+=`<div class="cc"><div class="ch"><span class="cn">${c.tier_name}</span><span class="cd">${c.tier_desc}</span></div>
+      <div class="cp2">${allBalls}</div>
+      <div class="cs"><span>💰${c.total_cost}元</span><span>🎯${c.total_combos}注</span>
+      <span>📊${(c.avg_match_rate*100).toFixed(1)}%</span><span>⭐${(c.consistency*100).toFixed(0)}%</span></div></div>`;
+  });
+  h+=`</div>`;
+  // 复式构建步骤
+  if(D&&D.compound_plans&&D.compound_plans[0]&&D.compound_plans[0].build_steps){
+    h+=`<div id="sx"><h3>复式构建步骤 <small>贪心扩展轨迹</small></h3><div class="sb" id="sl"></div></div>`;
+  }else{
+    h+=`<div id="sx" style="display:none"><h3>复式构建步骤 <small>贪心扩展轨迹</small></h3><div class="sb" id="sl"></div></div>`;
+  }
+  h+=`<div id="history-section"></div>`;
+  tp.innerHTML=h;
+  // 如果有构建步骤数据，立即渲染
+  if(D&&D.compound_plans&&D.compound_plans[0]&&D.compound_plans[0].build_steps)rd(D);
+}
+
+async function runFast(){
+  let pf=$('pf'),pl=$('pl');pf.style.width='10%';pl.textContent='采样候选...';
+  await sleep(300);pf.style.width='30%';pl.textContent='双向验证...';await sleep(300);
+  pf.style.width='55%';pl.textContent='复式规划...';D=await get('/api/predict/run?evolve=false');
+  pf.style.width='80%';pl.textContent='生成报告...';await sleep(300);render();rd(D);
+  // 恢复历史内容
+  loadHistory();
+  pf.style.width='100%';pl.textContent='完成';await sleep(600);pf.style.width='0%';pl.textContent='就绪';
+}
+
+// 全量推理弹窗 + 实时进度
+function runFull(){
+  // 创建弹窗
+  let modal=document.createElement('div');
+  modal.id='evoModal';
+  modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:999;display:flex;align-items:center;justify-content:center';
+  modal.innerHTML=`<div style="background:#111827;border:1px solid #f1c40f;border-radius:12px;padding:24px;width:400px;max-width:90%">
+    <h3 style="color:#f1c40f;margin-bottom:12px">🧬 全量遗传进化</h3>
+    <div style="height:12px;background:#1e2d50;border-radius:6px;overflow:hidden;margin-bottom:8px">
+      <div id="evoBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2ecc71,#f1c40f,#e74c3c);border-radius:6px;transition:width .5s"></div>
+    </div>
+    <div id="evoMsg" style="font-size:12px;color:#7f8fa6;margin-bottom:12px;text-align:center">初始化...</div>
+    <div id="evoLog" style="font-size:10px;color:#5a6a8a;max-height:200px;overflow-y:auto;border-top:1px solid #1e2d50;padding-top:8px"></div>
+    <button id="evoClose" style="display:none;margin-top:12px;padding:6px 20px;background:#f1c40f;border:none;border-radius:6px;color:#0a0e17;font-weight:700;cursor:pointer" onclick="document.body.removeChild(document.getElementById('evoModal'))">关闭</button>
+  </div>`;
+  document.body.appendChild(modal);
+
+  // 启动全量推理
+  let pf=$('pf'),pl=$('pl');pf.style.width='2%';pl.textContent='全量进化中...';
+  fetch('/api/predict/run?evolve=true').then(r=>r.json()).then(d=>{D=d;render();rd(D);
+    loadHistory();
+    pf.style.width='100%';pl.textContent='完成';let cb=document.getElementById('evoClose');if(cb){cb.style.display='block';}let eb=document.getElementById('evoBar');if(eb)eb.style.width='100%';let em=document.getElementById('evoMsg');if(em)em.textContent='✅ 进化完成';setTimeout(()=>{pf.style.width='0%';pl.textContent='就绪';},600);});
+
+  // 轮询进度
+  let logCnt=0;
+  let poll=setInterval(async()=>{
+    try{
+      let p=await(await fetch('/api/predict/progress')).json();
+      let eb=document.getElementById('evoBar'),em=document.getElementById('evoMsg'),el=document.getElementById('evoLog');
+      if(eb)eb.style.width=p.progress+'%';
+      if(em)em.textContent=p.message||'进化中...';
+      if(el&&p.message&&p.message!==el.lastChild?.textContent){
+        let d=document.createElement('div');d.textContent=p.message;el.appendChild(d);el.scrollTop=el.scrollHeight;
+      }
+      if(!p.running){clearInterval(poll);pf.style.width='0%';pl.textContent='就绪';}
+    }catch(e){}
+  },2000);
+}
+
+async function updateData(){
+  let pf=$('pf'),pl=$('pl');
+  pf.style.width='10%';pl.textContent='更新数据...';
+  let r=await get('/api/update');
+  pf.style.width='50%';pl.textContent=r.success?'数据已更新':'更新失败';
+  if(r.success){
+    D=await get('/api/predict/run?evolve=false');render();rd(D);
+    // 刷新历史图表和分区表格
+    pf.style.width='75%';pl.textContent='刷新图表...';
+    H=null;loadHistory();
+  }
+  pf.style.width='100%';pl.textContent=r.success?'完成':'失败';
+  await sleep(1000);pf.style.width='0%';pl.textContent='就绪';
+}
+
+async function saveComparison(){
+  let pf=$('pf'),pl=$('pl');
+  pf.style.width='20%';pl.textContent='保存预测...';
+  let data={target_issue:D.current_issue,predictions:D.predictions,compound_plans:D.compound_plans};
+  let r=await fetch('/api/predict/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(r=>r.json());
+  pf.style.width='60%';pl.textContent='已保存 '+r.saved+' 注';
+  // 刷新对照页数据
+  CMP=null;
+  if(document.getElementById('tcmp').classList.contains('active'))loadComparisonPage();
+  pf.style.width='100%';pl.textContent='完成';
+  await sleep(800);pf.style.width='0%';pl.textContent='就绪';
+}
+
+async function loadComparisonPage(){
+  try{
+    if(!CMP)CMP=await get('/api/predict/comparison');
+    if(!Array.isArray(CMP))CMP=[];
+  }catch(e){CMP=[];console.error('cmp load error:',e);}
+  let h='<h3>预测对照 <small>命中分析</small></h3>';
+  let issues=[];let batches=[];
+  try{
+    issues=[...new Set(CMP.filter(c=>c&&c.target_issue).map(c=>c.target_issue))].sort().reverse();
+    batches=CMP.filter(c=>c&&c.batch_id).map(c=>({id:c.batch_id,issue:c.target_issue})).filter((v,i,a)=>a.findIndex(t=>t.id===v.id)===i).sort((a,b)=>b.id-a.id);
+  }catch(e){}
+  let tcmpDiv=document.getElementById('tcmp');
+  if(!tcmpDiv)return;
+  h+=`<div style="display:flex;gap:8px;margin-bottom:10px">
+    <select id="cmp-issue" style="flex:1;background:#1e2d50;color:#e0e6f0;border:1px solid #2a3a6a;border-radius:4px;padding:4px" onchange="filterComparison()">
+      <option value="">全部期次</option>${issues.map(i=>'<option value="'+i+'">'+i+'</option>').join('')}
+    </select>
+    <select id="cmp-batch" style="flex:1;background:#1e2d50;color:#e0e6f0;border:1px solid #2a3a6a;border-radius:4px;padding:4px" onchange="filterComparison()">
+      <option value="">全部批次</option>${batches.map(b=>'<option value="'+b.id+'">#'+b.id+' ('+b.issue+')</option>').join('')}
+    </select>
+  </div>`;
+  h+='<div id="cmp-results" style="font-size:10px;max-height:600px;overflow-y:auto">';
+  if(CMP.length===0)h+='<div style="color:#5a6a8a;padding:10px;text-align:center">暂无保存记录，先点击 💾保存</div>';
+  h+='</div>';
+  tcmpDiv.innerHTML=h;
+  if(CMP.length>0)filterComparison();
+}
+
+function filterComparison(){
+  let issue=document.getElementById('cmp-issue')?.value||'';
+  let batch=document.getElementById('cmp-batch')?.value||'';
+  let filtered=CMP.filter(c=>(!issue||c.target_issue===issue)&&(!batch||c.batch_id==batch));
+  let div=document.getElementById('cmp-results');if(!div)return;
+  let h='';
+  filtered.forEach(c=>{
+    let isCompound=c.entry_type==='compound'||c.reds_count>6;
+    let ballSize=isCompound?'12px':'16px';
+    let ballH=isCompound?'12px':'16px';
+    let ballFont=isCompound?'5px':'7px';
+    let reds=JSON.parse(c.reds||'[]').map(n=>`<span class="bl" style="width:${ballSize};height:${ballH};font-size:${ballFont}">${String(n).padStart(2,'0')}</span>`).join('');
+    let blueBalls='';
+    try{
+      let blues=JSON.parse(c.blue||'[]');
+      if(Array.isArray(blues)){
+        blueBalls=blues.map(b=>`<span class="bl" style="width:${ballSize};height:${ballH};font-size:${ballFont};background:#3498db">${String(b).padStart(2,'0')}</span>`).join('');
+      }
+    }catch(e){
+      blueBalls=c.blue!==null?`<span class="bl" style="width:${ballSize};height:${ballH};font-size:${ballFont};background:#3498db">${String(c.blue).padStart(2,'0')}</span>`:'';
+    }
+    let actualHtml='';
+    if(c.actual_reds){
+      let aReds=c.actual_reds.map(n=>`<span class="bl" style="width:16px;height:16px;font-size:7px;opacity:0.5">${String(n).padStart(2,'0')}</span>`).join('');
+      actualHtml=`<span style="color:#5a6a8a">实际:</span>${aReds}<span class="bl" style="width:16px;height:16px;font-size:7px;background:#3498db;opacity:0.5">${String(c.actual_blue).padStart(2,'0')}</span>`;
+    }
+    let rankDisplay=isCompound?'复'+c.rank:'#'+c.rank;
+    h+=`<div style="display:flex;align-items:center;gap:2px;padding:2px 4px;border-bottom:1px solid #1a2340;overflow-x:auto">
+      <span style="min-width:32px;color:#5a6a8a;font-size:9px">#${c.batch_id}</span>
+      <span style="min-width:36px;color:#7f8fa6;font-size:9px">${c.target_issue}</span>
+      <span style="min-width:16px;font-size:9px">${rankDisplay}</span>
+      <span style="white-space:nowrap">${reds}${blueBalls}</span>
+      ${actualHtml}
+      <span style="margin-left:auto;color:#7f8fa6;font-size:8px;white-space:nowrap">⭐${(c.consistency*100).toFixed(0)}% 📊${c.hit_red!==null?c.hit_red+'/6':'?'}</span>
+    </div>`;
+  });
+  if(!h)h='<div style="color:#5a6a8a;padding:10px;text-align:center">暂无匹配记录</div>';
+  div.innerHTML=h;
+}
+function rd(d){
+  let cp=d.compound_plans;if(!cp||!cp[0]||!cp[0].build_steps)return;
+  let st=cp[0].build_steps,sx=$('sx'),sl=$('sl');sx.style.display='block';sl.innerHTML='';
+  let mc=Math.max(...st.map(s=>s.coverage))||1;
+  st.forEach(s=>{
+    let pct=(s.coverage*100).toFixed(2),bw=Math.max(1,(s.coverage/mc*100));
+    let cl=s.action==='加红球'?'#e74c3c':s.action==='加蓝球'?'#3498db':'#7f8fa6';
+    let bh=s.ball?`<span class="sbl" style="background:${cl}">${String(s.ball).padStart(2,'0')}</span>`:'';
+    sl.innerHTML+=`<div class="sr"><span class="sn">#${s.step}</span>${bh}<span style="min-width:50px">${s.action}</span>
+      <span style="color:#7f8fa6;min-width:35px">${s.reds_count}红</span>
+      <div class="sba"><div class="sbf2" style="width:${bw}%;background:${cl}"></div></div><span class="sp">${pct}%</span></div>`;
+  });
+}
+
+  // ── 历史趋势 ──
+async function loadHistory(){
+  H=await get('/api/predict/history?_t='+Date.now());let d=H;
+  if(!d.red_freq||!d.red_freq.length)return;
+  let h='';
+  // 三区分布概况 + 蓝球四区
+  let tZ1=d.zone_series.reduce((s,x)=>s+x.z1,0),tZ2=d.zone_series.reduce((s,x)=>s+x.z2,0),tZ3=d.zone_series.reduce((s,x)=>s+x.z3,0),nZ=d.zone_series.length||1;
+  // 蓝球四区(带数据校验)
+  let bZ1=0,bZ2=0,bZ3=0,bZ4=0;
+  if(d.blue_freq&&Array.isArray(d.blue_freq)){
+    d.blue_freq.forEach(function(b){
+      if(b&&typeof b.num==='number'){
+        if(b.num<=4) bZ1+=b.count||0;
+        else if(b.num<=8) bZ2+=b.count||0;
+        else if(b.num<=12) bZ3+=b.count||0;
+        else bZ4+=b.count||0;
+      }
+    });
+  }
+  let bT=bZ1+bZ2+bZ3+bZ4||1;
+  h+=`<h3>区间分布概况</h3>
+  <div style="display:flex;gap:10px;margin-bottom:10px">
+    <div style="flex:1;background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:10px">
+      <div style="font-size:10px;color:#e74c3c;font-weight:700;margin-bottom:6px">🔴 红球三区</div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#e74c3c">${(tZ1/nZ).toFixed(2)}</div><div style="font-size:9px;color:#7f8fa6">1-11</div></div>
+        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#f39c12">${(tZ2/nZ).toFixed(2)}</div><div style="font-size:9px;color:#7f8fa6">12-22</div></div>
+        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#3498db">${(tZ3/nZ).toFixed(2)}</div><div style="font-size:9px;color:#7f8fa6">23-33</div></div>
+      </div>
+    </div>
+    <div style="flex:1;background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:10px">
+      <div style="font-size:10px;color:#3498db;font-weight:700;margin-bottom:6px">🔵 蓝球四区</div>
+      <div style="display:flex;gap:6px">
+        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#2ecc71">${(bZ1/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">1-4</div></div>
+        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#1abc9c">${(bZ2/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">5-8</div></div>
+        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#9b59b6">${(bZ3/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">9-12</div></div>
+        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#e91e63">${(bZ4/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">13-16</div></div>
+      </div>
+    </div>
+  </div>`;
+  // 历史趋势
+  h+=`<h3>历史趋势 <small>红蓝频率+奖池</small></h3>`;
+  h+=`<div class="card2" style="padding:6px 4px"><div style="display:flex;gap:6px">
+    <div style="flex:2;min-width:0">${d.red_chart_svg||''}</div>
+    <div style="flex:1;min-width:0">${d.blue_chart_svg||''}</div>
+  </div></div>`;
+  h+=`<div class="card2" style="padding:6px 4px"><div class="ct">奖池历史曲线 (${d.pool_dense.length}期全量)</div>${d.pool_chart_svg||''}</div>`;
+  // Regime分布
+  let cols=['#e74c3c','#3498db','#f39c12','#2ecc71','#9b59b6'],nams=['崩溃态','蓄水态','大奖态','增长态','成熟态'];
+  h+=`<div class="card2"><div class="ct">市场状态分布 (GMM 5类)</div><div class="rg">`;
+  d.regime_dist.forEach(r=>{
+    let sh='';if(r.samples)r.samples.forEach(s=>{
+      let rs=s.reds.map(n=>`<span class="snm snr">${String(n).padStart(2,'0')}</span>`).join('');
+      sh+=`<div style="font-size:8px;color:#5a6a8a;text-align:center">${s.issue}</div><div class="sn2">${rs}<span class="snm snb">${String(s.blue).padStart(2,'0')}</span></div>`;
+    });
+    h+=`<div class="rc"><div class="rv" style="color:${cols[r.regime]}">${r.pct}%</div><div class="rl">${nams[r.regime]}</div><div class="rs">${r.count}期</div>${sh}</div>`;
+  });
+  h+=`</div></div>`;
+  // 追加到历史区域（独立容器，不会被render覆盖）
+  let hs=document.getElementById('history-section');
+  if(hs){hs.innerHTML=h;H_HTML=h;}
+  // 每期号码分布（追加到同一历史区域）
+  loadZone(d);
+}
+
+function loadZone(d){
+  let h='',periodsTotal=d.zone_series.length||3481;
+  let tZ1=d.zone_series.reduce((s,x)=>s+x.z1,0),tZ2=d.zone_series.reduce((s,x)=>s+x.z2,0),tZ3=d.zone_series.reduce((s,x)=>s+x.z3,0),nZ=periodsTotal;
+  h+=`<div class="card2"><div class="ct">红球三区平均分布</div><div class="zs">
+    <div class="zc"><div class="zv" style="color:#e74c3c">${(tZ1/nZ).toFixed(2)}</div><div class="zl">一区 1-11</div></div>
+    <div class="zc"><div class="zv" style="color:#f39c12">${(tZ2/nZ).toFixed(2)}</div><div class="zl">二区 12-22</div></div>
+    <div class="zc"><div class="zv" style="color:#3498db">${(tZ3/nZ).toFixed(2)}</div><div class="zl">三区 23-33</div></div>
+  </div></div>`;
+  h+=`<h3>每期号码分布 <small>33红+16蓝网格</small></h3>`;
+  h+=`<div id="zone-table-wrap" class="card2"><div class="ct">每期号码分布 (${periodsTotal}期)</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px">
+      <button class="btn" style="font-size:10px;padding:3px 8px" onclick="zonePage(-1)">◀ 上一页</button>
+      <span id="zone-page-info" style="font-size:10px;color:#7f8fa6;align-self:center">第1页</span>
+      <button class="btn" style="font-size:10px;padding:3px 8px" onclick="zonePage(1)">下一页 ▶</button>
+    </div>
+    <div class="zt" style="max-height:400px;overflow-y:auto"><table><thead><tr>`;
+  for(let n=1;n<=33;n++) h+=`<th style="color:#e74c3c;font-size:6px;font-weight:400;padding:1px 0">${String(n).padStart(2,'0')}</th>`;
+  h+=`<th style="width:3px;padding:0"></th>`;
+  for(let n=1;n<=16;n++) h+=`<th style="color:#3498db;font-size:6px;font-weight:400;padding:1px 0">${String(n).padStart(2,'0')}</th>`;
+  h+=`<th class="iss-col">期</th></tr></thead><tbody id="zone-tbody"></tbody></table></div></div>`;
+  let hs2=document.getElementById('history-section');
+  if(hs2)hs2.innerHTML+=h;
+  zonePage(0);
+}
+
+async function zonePage(dir){
+  let info=document.getElementById('zone-page-info');
+  if(!info)return;
+  let m=info.textContent.match(/\d+/);
+  let page=dir===0?1:parseInt(m?m[0]:1)+dir;
+  if(page<1)return;
+  let per=200;
+  try{
+    let d=await(await fetch('/api/periods?page='+page+'&per_page='+per)).json();
+    document.getElementById('zone-page-info').textContent='第'+page+'页/'+Math.ceil(d.total/per)+'页';
+    let tb=document.getElementById('zone-tbody');if(!tb)return;
+    tb.innerHTML='';
+    d.periods.forEach(p=>{
+      let rs=new Set(p.reds);
+      let r='';for(let n=1;n<=33;n++){let on=rs.has(n);r+='<td><span class="'+(on?'cell-on':'cell-off')+'">'+(on?String(n).padStart(2,'0'):'·')+'</span></td>';}
+      let b='';for(let n=1;n<=16;n++){let on=p.blue===n;b+='<td><span class="'+(on?'cell-b-on':'cell-b-off')+'">'+(on?String(n).padStart(2,'0'):'·')+'</span></td>';}
+      tb.innerHTML+='<tr>'+r+'<td style="width:3px;padding:0"></td>'+b+'<td class="iss-col">'+p.issue+'</td></tr>';
+    });
+  }catch(e){}
+}
+</script>
+</body>
+</html>

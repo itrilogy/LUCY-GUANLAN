@@ -1,0 +1,444 @@
+{
+  "update_time": "2026-07-26 04:23:44",
+  "current_issue": "26084",
+  "elapsed": 1.8,
+  "market": {
+    "regime": "平衡",
+    "regime_id": 0,
+    "pool": 480566551,
+    "bet": 348718788,
+    "predicted_pool_range": [
+      432509895,
+      528623206
+    ],
+    "predicted_bet_range": [
+      243424009,
+      297518233
+    ]
+  },
+  "predictions": [
+    {
+      "rank": 1,
+      "reds": [
+        14,
+        15,
+        16,
+        17,
+        18,
+        23
+      ],
+      "blue": 9,
+      "consistency": 0.2648,
+      "cost": 3.65,
+      "est_prize1": 8,
+      "passed": true
+    },
+    {
+      "rank": 2,
+      "reds": [
+        11,
+        12,
+        16,
+        21,
+        24,
+        25
+      ],
+      "blue": 15,
+      "consistency": 0.2273,
+      "cost": 3.13,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 3,
+      "reds": [
+        4,
+        5,
+        6,
+        26,
+        30,
+        31
+      ],
+      "blue": 11,
+      "consistency": 0.2273,
+      "cost": 2.82,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 4,
+      "reds": [
+        9,
+        11,
+        15,
+        16,
+        26,
+        27
+      ],
+      "blue": 14,
+      "consistency": 0.2273,
+      "cost": 2.94,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 5,
+      "reds": [
+        2,
+        8,
+        9,
+        12,
+        14,
+        15
+      ],
+      "blue": 8,
+      "consistency": 0.2273,
+      "cost": 3.09,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 6,
+      "reds": [
+        10,
+        14,
+        15,
+        18,
+        29,
+        30
+      ],
+      "blue": 9,
+      "consistency": 0.2273,
+      "cost": 2.92,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 7,
+      "reds": [
+        8,
+        18,
+        19,
+        20,
+        24,
+        25
+      ],
+      "blue": 3,
+      "consistency": 0.2273,
+      "cost": 3.2,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 8,
+      "reds": [
+        15,
+        16,
+        22,
+        24,
+        26,
+        29
+      ],
+      "blue": 5,
+      "consistency": 0.2273,
+      "cost": 2.88,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 9,
+      "reds": [
+        8,
+        9,
+        15,
+        16,
+        17,
+        26
+      ],
+      "blue": 11,
+      "consistency": 0.2273,
+      "cost": 3.13,
+      "est_prize1": 7,
+      "passed": true
+    },
+    {
+      "rank": 10,
+      "reds": [
+        9,
+        10,
+        15,
+        18,
+        20,
+        23
+      ],
+      "blue": 1,
+      "consistency": 0.2273,
+      "cost": 2.82,
+      "est_prize1": 7,
+      "passed": true
+    }
+  ],
+  "popularity": {
+    "hot": [
+      24,
+      1,
+      5,
+      14,
+      28,
+      10,
+      12,
+      7,
+      27,
+      11
+    ],
+    "cold": [
+      33,
+      3,
+      20,
+      8,
+      30,
+      2,
+      26,
+      9,
+      13,
+      31
+    ],
+    "birthday_effect": 1.16
+  },
+  "last_review": {
+    "issue": "26084",
+    "actual_reds": [
+      1,
+      5,
+      6,
+      10,
+      12,
+      16
+    ],
+    "actual_blue": 5
+  },
+  "compound_plans": [
+    {
+      "reds": [
+        7,
+        8,
+        10,
+        11,
+        15,
+        16,
+        18,
+        25
+      ],
+      "blues": [
+        9
+      ],
+      "total_combos": 28,
+      "total_cost": 56,
+      "weighted_score": 9.04,
+      "coverage_rate": 0.0205,
+      "consistency": 0.3,
+      "avg_match_rate": 0.0205,
+      "build_steps": [
+        {
+          "step": 0,
+          "action": "基底",
+          "ball": null,
+          "reds_count": 6,
+          "coverage": 0.015,
+          "cumulative_gain": 0
+        },
+        {
+          "step": 1,
+          "action": "加红球",
+          "ball": 18,
+          "reds_count": 7,
+          "coverage": 0.0178,
+          "gain": 1.2225,
+          "cumulative_gain": 1.2225
+        },
+        {
+          "step": 2,
+          "action": "加红球",
+          "ball": 8,
+          "reds_count": 8,
+          "coverage": 0.0205,
+          "gain": 1.2175,
+          "cumulative_gain": 2.4399
+        }
+      ],
+      "tier_name": "经济型",
+      "tier_desc": "56元 (28注)"
+    },
+    {
+      "reds": [
+        4,
+        7,
+        8,
+        10,
+        11,
+        15,
+        16,
+        18,
+        25
+      ],
+      "blues": [
+        9
+      ],
+      "total_combos": 84,
+      "total_cost": 168,
+      "weighted_score": 10.22,
+      "coverage_rate": 0.0232,
+      "consistency": 0.3,
+      "avg_match_rate": 0.0232,
+      "build_steps": [
+        {
+          "step": 0,
+          "action": "基底",
+          "ball": null,
+          "reds_count": 6,
+          "coverage": 0.015,
+          "cumulative_gain": 0
+        },
+        {
+          "step": 1,
+          "action": "加红球",
+          "ball": 18,
+          "reds_count": 7,
+          "coverage": 0.0178,
+          "gain": 1.2225,
+          "cumulative_gain": 1.2225
+        },
+        {
+          "step": 2,
+          "action": "加红球",
+          "ball": 8,
+          "reds_count": 8,
+          "coverage": 0.0205,
+          "gain": 1.2175,
+          "cumulative_gain": 2.4399
+        },
+        {
+          "step": 3,
+          "action": "加红球",
+          "ball": 4,
+          "reds_count": 9,
+          "coverage": 0.0232,
+          "gain": 1.1808,
+          "cumulative_gain": 3.6207
+        }
+      ],
+      "tier_name": "标准型",
+      "tier_desc": "168元 (84注)"
+    },
+    {
+      "reds": [
+        4,
+        7,
+        8,
+        10,
+        11,
+        15,
+        16,
+        18,
+        20,
+        25
+      ],
+      "blues": [
+        9,
+        16
+      ],
+      "total_combos": 420,
+      "total_cost": 840,
+      "weighted_score": 21.49,
+      "coverage_rate": 0.0488,
+      "consistency": 0.3,
+      "avg_match_rate": 0.0488,
+      "build_steps": [
+        {
+          "step": 0,
+          "action": "基底",
+          "ball": null,
+          "reds_count": 6,
+          "coverage": 0.015,
+          "cumulative_gain": 0
+        },
+        {
+          "step": 1,
+          "action": "加红球",
+          "ball": 18,
+          "reds_count": 7,
+          "coverage": 0.0178,
+          "gain": 1.2225,
+          "cumulative_gain": 1.2225
+        },
+        {
+          "step": 2,
+          "action": "加红球",
+          "ball": 8,
+          "reds_count": 8,
+          "coverage": 0.0205,
+          "gain": 1.2175,
+          "cumulative_gain": 2.4399
+        },
+        {
+          "step": 3,
+          "action": "加红球",
+          "ball": 4,
+          "reds_count": 9,
+          "coverage": 0.0232,
+          "gain": 1.1808,
+          "cumulative_gain": 3.6207
+        },
+        {
+          "step": 4,
+          "action": "加红球",
+          "ball": 20,
+          "reds_count": 10,
+          "coverage": 0.0259,
+          "gain": 1.1751,
+          "cumulative_gain": 4.7958
+        },
+        {
+          "step": 5,
+          "action": "加蓝球",
+          "ball": 16,
+          "reds_count": 10,
+          "blues_count": 2,
+          "coverage": 0.0488,
+          "gain": 10.0964
+        }
+      ],
+      "tier_name": "豪华型",
+      "tier_desc": "840元 (420注)"
+    },
+    {
+      "tier_name": "高频聚合",
+      "tier_desc": "420注=840元",
+      "reds": [
+        8,
+        9,
+        14,
+        15,
+        16,
+        17,
+        18,
+        23,
+        24,
+        26
+      ],
+      "blues": [
+        9,
+        11
+      ],
+      "total_combos": 420,
+      "total_cost": 840,
+      "avg_match_rate": 0.1667,
+      "consistency": 0.231
+    }
+  ],
+  "stats": {
+    "total_candidates": 2000,
+    "top_score": 0.2648,
+    "avg_score": 0.23105000000000003
+  }
+}
