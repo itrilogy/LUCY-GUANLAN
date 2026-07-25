@@ -126,16 +126,35 @@ class Validator:
         current_regime = self.mm.get_regime()
         bet_amount = self.dh.bet[self.dh.latest_t]
         
+        # T_bwd: 从当前Regime反推"前一期"应处的Regime (5-class)
+        tbd_prior = self.mm.regime_T_bwd[current_regime]
+        tbd_top_regime = int(np.argmax(tbd_prior))
+        
         results = []
         for reds, blue, cost in candidates:
             score = self.consistency_score(reds, current_regime, bet_amount)
             est_prize = self.forward(reds, bet_amount)
+            
+            # T_bwd 一致性: 软匹配 (用重叠概率)
+            back_result = self.backward(est_prize)
+            tbd_bonus = 0.0
+            if back_result:
+                # 计算 backward 推得的 Regime 分布与 T_bwd 预期分布的相似度
+                bwd_total = sum(back_result['regime_dist'].values())
+                overlap = 0.0
+                for r_k, r_p in back_result['regime_dist'].items():
+                    overlap += min(r_p / bwd_total, tbd_prior[int(r_k)])
+                tbd_bonus = round(overlap * 0.2, 3)  # 最高+20%
+            
+            adjusted = min(1.0, score * (1.0 + tbd_bonus))
             results.append({
                 'reds': reds,
                 'blue': blue,
                 'cost': cost,
-                'consistency': score,
+                'consistency': round(adjusted, 4),
+                'raw_consistency': round(score, 4),
                 'est_prize1': est_prize,
+                'tbd_bonus': round(tbd_bonus, 3),
             })
         
         results.sort(key=lambda x: x['consistency'], reverse=True)

@@ -136,6 +136,30 @@ class MarketModel:
         self.markov_T = T / row_sum
         self.markov_labels = labels
         self.markov_km = km
+        
+        # T_bwd: Bayesian reverse transition for 12-state Markov
+        pi_matrix = np.ones(n_states) / n_states
+        for k in range(n_states):
+            pi_matrix[k] = np.sum(labels == k) / self.N
+        pi_mat = pi_matrix.reshape(1, -1)
+        pi_j_mat = pi_matrix.reshape(-1, 1)
+        T_bwd = self.markov_T.T * pi_mat / (pi_j_mat + 1e-10)
+        col_sum = T_bwd.sum(axis=0, keepdims=True) + 1e-10
+        self.markov_T_bwd = T_bwd / col_sum
+        
+        # ── 5-class Regime 级转移矩阵 (与 validator 的 regime_dist 兼容) ──
+        labels_5 = self._regime_labels  # 使用已计算的5类Regime标签
+        T5 = np.zeros((5, 5))
+        for t in range(self.N - 1):
+            T5[labels_5[t], labels_5[t+1]] += 1
+        row_sum5 = T5.sum(axis=1, keepdims=True) + 1e-10
+        self.regime_T = T5 / row_sum5
+        
+        # T_bwd for 5-class
+        pi5 = np.array([np.sum(labels_5 == k) for k in range(5)], dtype=float) / self.N
+        T5_bwd = self.regime_T.T * pi5.reshape(1, -1) / (pi5.reshape(-1, 1) + 1e-10)
+        col5 = T5_bwd.sum(axis=0, keepdims=True) + 1e-10
+        self.regime_T_bwd = T5_bwd / col5
     
     def get_markov_state(self, t=None):
         if t is None:
@@ -148,6 +172,14 @@ class MarketModel:
         d[state_k] = 1.0
         for _ in range(steps):
             d = d @ self.markov_T
+        return d
+    
+    def backward_markov(self, state_k, steps=1):
+        """反向回溯 Markov 链 (T_bwd)"""
+        d = np.zeros(self.markov_T_bwd.shape[0])
+        d[state_k] = 1.0
+        for _ in range(steps):
+            d = d @ self.markov_T_bwd
         return d
     
     def get_transition_prob(self, from_k, to_k):

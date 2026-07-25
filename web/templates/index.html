@@ -421,6 +421,25 @@ async function loadHistory(){
     h+=`<div class="rc"><div class="rv" style="color:${cols[r.regime]}">${r.pct}%</div><div class="rl">${nams[r.regime]}</div><div class="rs">${r.count}期</div>${sh}</div>`;
   });
   h+=`</div></div>`;
+  // 反向回溯 T_bwd
+  try{
+    let bt=await get('/api/predict/backtrack?steps=5');
+    if(bt&&bt.chain){
+      h+=`<h3>反向回溯 <small>T_bwd 概率转移核</small></h3><div class="card2"><div style="display:flex;gap:4px;overflow-x:auto;padding:4px 0">`;
+      bt.chain.forEach(function(c,i){
+        let bg=i===0?'#1a2a1a':'#111827';
+        let border=i===0?'1px solid #2ecc71':'1px solid #1e2d50';
+        h+=`<div style="background:${bg};border:${border};border-radius:8px;padding:8px;text-align:center;min-width:100px">
+          <div style="font-size:10px;color:#7f8fa6">${i===0?'当前期':'-'+i+'步'}</div>
+          <div style="font-size:14px;font-weight:700;color:${['#e74c3c','#3498db','#f39c12','#2ecc71','#9b59b6'][c.regime]||'#7f8fa6'}">${c.name}</div>
+          ${c.prob!==undefined?`<div style="font-size:9px;color:#5a6a8a">P=${(c.prob*100).toFixed(0)}%</div>`:''}
+          ${c.stat?`<div style="font-size:8px;color:#7f8fa6;margin-top:4px">💰${c.stat.avg_pool?.toFixed(1)}亿<br>🎯${Math.round(c.stat.avg_prize1||0)}注</div>`:''}
+          ${c.pool_range?`<div style="font-size:7px;color:#5a6a8a;margin-top:2px">池[${c.pool_range[0].toFixed(1)},${c.pool_range[1].toFixed(1)}]</div>`:''}
+        </div>`;
+      });
+      h+=`</div></div>`;
+    }
+  }catch(e){}
   // 追加到历史区域（独立容器，不会被render覆盖）
   let hs=document.getElementById('history-section');
   if(hs){hs.innerHTML=h;H_HTML=h;}

@@ -345,6 +345,50 @@ def api_status():
     })
 
 
+@app.route('/api/predict/backtrack')
+def api_backtrack():
+    """API: 反向回溯 (T_bwd) — 从当前态倒推前期市场状态"""
+    steps = request.args.get('steps', 5, type=int)
+    steps = min(10, max(1, steps))
+    
+    current_t = dh.latest_t
+    current_regime = mm.get_regime(current_t)
+    regime_names = ['崩溃态','蓄水态','大奖态','增长态','成熟态']
+    
+    # 获取每个Regime的历史均值和范围
+    regime_stats = {}
+    for k in range(5):
+        mask = mm._regime_labels == k
+        if mask.sum() > 0:
+            regime_stats[k] = {
+                'name': regime_names[k],
+                'avg_pool': float(np.mean(dh.pool[mask]) / 1e8),
+                'avg_bet': float(np.mean(dh.bet[mask]) / 1e8),
+                'avg_prize1': float(np.mean(dh.p1c[mask])),
+                'count': int(mask.sum()),
+            }
+    
+    # 从当前Regime反向推演
+    chain = [{'step': 0, 'regime': int(current_regime), 'name': regime_names[current_regime],
+              'pool': float(dh.pool[current_t]/1e8), 'bet': float(dh.bet[current_t]/1e8),
+              'prize1': int(dh.p1c[current_t]), 'stat': regime_stats.get(current_regime, {})}]
+    
+    current_k = current_regime
+    for s in range(1, steps + 1):
+        bwd_dist = mm.backward_markov(current_k, steps=1)
+        top_k = int(np.argmax(bwd_dist))
+        chain.append({'step': s, 'regime': int(top_k), 'name': regime_names[top_k],
+                      'prob': float(bwd_dist[top_k]),
+                      'pool_range': [float(np.percentile(dh.pool[mm._regime_labels==top_k], 25)/1e8),
+                                     float(np.percentile(dh.pool[mm._regime_labels==top_k], 75)/1e8)],
+                      'prize1_range': [float(np.percentile(dh.p1c[mm._regime_labels==top_k], 25)),
+                                       float(np.percentile(dh.p1c[mm._regime_labels==top_k], 75))],
+                      'stat': regime_stats.get(top_k, {})})
+        current_k = top_k
+    
+    return jsonify({'current_issue': dh.issues[current_t], 'chain': chain})
+
+
 if __name__ == '__main__':
     print(f"启动服务: http://{HOST}:{PORT}")
     app.run(host=HOST, port=PORT, debug=DEBUG)
