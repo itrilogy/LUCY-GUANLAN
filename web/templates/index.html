@@ -176,7 +176,9 @@ function render(){
   let topB2=parseInt(Object.entries(bCnt).sort((a,b)=>b[1]-a[1])[1][0])||topB;
   allP.push({rank:11,reds:topR,blue:topB,consistency:0.30,cost:0,est_prize1:5});
   allP.push({rank:12,reds:r2,blue:topB2,consistency:0.30,cost:0,est_prize1:5});
-  h+=`<h3>推荐号码 <small>第1-10注基于全验证池双向验证 · 第11-12注为top10频率聚合</small></h3><div class="pg">`;
+  h+=`<h3>推荐号码 <small>第1-10注基于全验证池双向验证 · 第11-12注为top10频率聚合</small>
+    <button onclick="copyNumbers()" style="font-size:9px;padding:2px 8px;border:1px solid #5a6a8a;background:#1a1a2a;color:#7f8fa6;border-radius:4px;cursor:pointer;margin-left:6px">📋复制</button>
+  </h3><div class="pg">`;
   allP.forEach(p=>{
     let rb=p.reds.map(r=>`<span class="bl">${String(r).padStart(2,'0')}</span>`).join('');
     h+=`<div class="pi"><span class="pn">#${p.rank}</span>
@@ -267,6 +269,30 @@ async function updateData(){
   }
   pf.style.width='100%';pl.textContent=r.success?'完成':'失败';
   await sleep(1000);pf.style.width='0%';pl.textContent='就绪';
+}
+
+function copyNumbers(){
+  if(!D||!D.predictions)return;
+  let txt='双色球推荐号码 ('+D.current_issue+'期)\n'+'='.repeat(30)+'\n';
+  D.predictions.forEach(function(p){
+    let reds=p.reds.map(function(n){return String(n).padStart(2,'0')}).join(',');
+    txt+='#'+p.rank+' '+reds+'+'+String(p.blue).padStart(2,'0')+'  ⭐'+(p.consistency*100).toFixed(0)+'%\n';
+  });
+  // 复式
+  if(D.compound_plans){
+    txt+='\n复式:\n';
+    D.compound_plans.forEach(function(c){
+      txt+=c.tier_name+': '+c.reds.join(',')+' + '+c.blues.join(',')+'  '+c.total_cost+'元\n';
+    });
+  }
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(function(){
+      let btn=event&&event.target;if(btn){btn.textContent='✅已复制';setTimeout(function(){btn.textContent='📋复制';},2000);}
+    }).catch(function(){});
+  }else{
+    // fallback
+    let ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+  }
 }
 
 async function saveComparison(){
@@ -421,21 +447,26 @@ async function loadHistory(){
     h+=`<div class="rc"><div class="rv" style="color:${cols[r.regime]}">${r.pct}%</div><div class="rl">${nams[r.regime]}</div><div class="rs">${r.count}期</div>${sh}</div>`;
   });
   h+=`</div></div>`;
-  // 反向回溯 T_bwd
+  // 反向回溯 T_bwd (参与预测计算: batch_validate中做T_bwd评分调整)
   try{
     let bt=await get('/api/predict/backtrack?steps=5');
     if(bt&&bt.chain){
-      h+=`<h3>反向回溯 <small>T_bwd 概率转移核</small></h3><div class="card2"><div style="display:flex;gap:4px;overflow-x:auto;padding:4px 0">`;
+      h+=`<h3>反向回溯 <small>T_bwd已参与预测评分</small></h3>
+      <div class="card2"><div style="display:flex;align-items:center;gap:1px;overflow-x:auto;padding:6px 2px">`;
+      let colsC=['#e74c3c','#3498db','#f39c12','#2ecc71','#9b59b6'];
+      let namesC=['崩溃态','蓄水态','大奖态','增长态','成熟态'];
       bt.chain.forEach(function(c,i){
-        let bg=i===0?'#1a2a1a':'#111827';
-        let border=i===0?'1px solid #2ecc71':'1px solid #1e2d50';
-        h+=`<div style="background:${bg};border:${border};border-radius:8px;padding:8px;text-align:center;min-width:100px">
-          <div style="font-size:10px;color:#7f8fa6">${i===0?'当前期':'-'+i+'步'}</div>
-          <div style="font-size:14px;font-weight:700;color:${['#e74c3c','#3498db','#f39c12','#2ecc71','#9b59b6'][c.regime]||'#7f8fa6'}">${c.name}</div>
-          ${c.prob!==undefined?`<div style="font-size:9px;color:#5a6a8a">P=${(c.prob*100).toFixed(0)}%</div>`:''}
-          ${c.stat?`<div style="font-size:8px;color:#7f8fa6;margin-top:4px">💰${c.stat.avg_pool?.toFixed(1)}亿<br>🎯${Math.round(c.stat.avg_prize1||0)}注</div>`:''}
-          ${c.pool_range?`<div style="font-size:7px;color:#5a6a8a;margin-top:2px">池[${c.pool_range[0].toFixed(1)},${c.pool_range[1].toFixed(1)}]</div>`:''}
-        </div>`;
+        let col=colsC[c.regime]||'#7f8fa6';
+        let isLast=i===bt.chain.length-1;
+        let isCurrent=i===0;
+        let arrow=i>0?'<span style="color:#5a6a8a;font-size:12px;flex-shrink:0">→</span>':'';
+        let label=isCurrent?'当前期':'-'+i+'步';
+        h+=arrow+'<div style="flex:1;text-align:center;min-width:80px;background:'+(isCurrent?'#1a2a1a':'#111827')+';border:1px solid '+(isCurrent?'#2ecc71':'#1e2d50')+';border-radius:8px;padding:6px 4px">';
+        h+=`<div style="font-size:8px;color:#7f8fa6">${label}</div>`;
+        h+=`<div style="font-size:16px;font-weight:700;color:${col}">${c.name}</div>`;
+        if(c.prob!==undefined)h+=`<div style="font-size:8px;color:#5a6a8a">P=${(c.prob*100).toFixed(0)}%</div>`;
+        if(c.stat)h+=`<div style="font-size:7px;color:#7f8fa6;margin-top:2px">💰${c.stat.avg_pool?.toFixed(1)||'?'}亿 🎯${Math.round(c.stat.avg_prize1||0)}注</div>`;
+        h+=`</div>`;
       });
       h+=`</div></div>`;
     }

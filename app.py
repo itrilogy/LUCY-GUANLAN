@@ -286,7 +286,7 @@ def api_save_predictions():
     """保存预测结果（含批次流水号）"""
     import json as _json
     data = request.get_json(force=True)
-    target = data.get('target_issue', dh.latest_issue)
+    target = data.get('target_issue', dh.next_issue)
     predictions = data.get('predictions', [])
     compounds = data.get('compound_plans', [])
     

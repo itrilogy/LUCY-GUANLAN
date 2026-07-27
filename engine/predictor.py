@@ -135,7 +135,7 @@ class Predictor:
         
         return {
             'update_time': time.strftime('%Y-%m-%d %H:%M:%S'),
-            'current_issue': self.dh.latest_issue,
+            'current_issue': self.dh.next_issue,
             'elapsed': round(elapsed, 1),
             
             'market': {

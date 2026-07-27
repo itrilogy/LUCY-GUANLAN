@@ -268,3 +268,14 @@ class DataHub:
     @property
     def latest_issue(self):
         return self.issues[-1]
+    
+    @property
+    def next_issue(self):
+        """推算下一期期号（格式: 年年期期期）"""
+        last = self.issues[-1]
+        year = int(last[:2])
+        seq = int(last[2:]) + 1
+        if seq > 999:
+            year += 1
+            seq = 1
+        return f"{year:02d}{seq:03d}"
