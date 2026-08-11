@@ -1,0 +1,8 @@
+{
+  "SCORING_MODE": "multi",
+  "SCORING_EXPERIMENTAL_GATE": false,
+  "EVOLUTION_MODE": "off",
+  "BACKWARD_MODE": "conditional",
+  "applied_from": "cutover_go",
+  "updated_at": "2026-08-11T17:01:05"
+}

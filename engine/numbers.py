@@ -12,7 +12,10 @@ import numpy as np
 from collections import Counter
 from scipy import stats
 from sklearn.linear_model import LinearRegression
-from config import N_RED, BIRTHDAY_EFFECT, N_CANDIDATES
+from config import (
+    N_RED, BIRTHDAY_EFFECT, N_CANDIDATES,
+    SAMPLE_WEIGHTED, SAMPLE_BLUE_MODE,
+)
 
 
 # 近窗期数（成本模型 recent 项）
@@ -217,49 +220,71 @@ class NumberModel:
         dist = self.get_conditional_dist(pool_state)
         candidates = []
         seen = set()
-        # 热路径：固定用最新期频率向量，避免每候选重算窗口
         freq_vec = self._latest_recent
-        
+        blue_weights = self._blue_empirical_weights() if SAMPLE_BLUE_MODE == "empirical" else None
+
         attempts = 0
         while len(candidates) < n and attempts < n * 20:
             attempts += 1
-            
-            # 从分布采样红球
             reds = self._sample_from_dist(dist)
             if reds is None:
                 continue
-            
             key = tuple(reds)
             if key in seen:
                 continue
             seen.add(key)
-            
-            blue = random.randint(1, 16)
+            blue = self._sample_blue(blue_weights)
             cost = self._raw_cost_score(reds, freq_vec=freq_vec)
             candidates.append((reds, blue, cost))
-        
         return candidates
-    
+
+    def _blue_empirical_weights(self):
+        """历史蓝球频率（归一化）"""
+        counts = np.zeros(16, dtype=float)
+        for t in range(self.N):
+            b = int(self.dh.data[t]["蓝球"])
+            if 1 <= b <= 16:
+                counts[b - 1] += 1
+        s = counts.sum()
+        if s <= 0:
+            return None
+        return counts / s
+
+    def _sample_blue(self, weights=None):
+        if weights is None:
+            return random.randint(1, 16)
+        idx = int(np.random.choice(16, p=weights))
+        return idx + 1
+
     def _sample_from_dist(self, dist):
-        """从特征分布采样一组红球"""
+        """从特征分布采样一组红球；SAMPLE_WEIGHTED 时按近窗热度加权"""
         target_span = random.gauss(dist['span']['mean'], dist['span']['std'])
         target_sum = random.gauss(dist['sum']['mean'], dist['sum']['std'])
         target_z1 = round(random.gauss(dist['z1']['mean'], dist['z1']['std']))
         target_bday = round(random.gauss(dist['bday']['mean'], dist['bday']['std']))
-        
+
         target_span = max(1, min(32, int(target_span)))
         target_sum = max(21, min(183, int(target_sum)))
         target_z1 = max(0, min(6, target_z1))
         target_bday = max(0, min(6, target_bday))
-        
-        # 拒绝采样
+
+        # 加权：近窗频率 + 均匀底噪；未启用则纯均匀
+        if SAMPLE_WEIGHTED:
+            freq = np.asarray(self._latest_recent, dtype=float) + 0.5
+            probs = freq / freq.sum()
+        else:
+            probs = None
+
         for _ in range(500):
-            reds = sorted(random.sample(range(1, 34), 6))
+            if probs is not None:
+                picks = np.random.choice(33, size=6, replace=False, p=probs)
+                reds = sorted(int(x) + 1 for x in picks)
+            else:
+                reds = sorted(random.sample(range(1, 34), 6))
             span = reds[-1] - reds[0]
             s = sum(reds)
             z1 = sum(1 for x in reds if 1 <= x <= 11)
             bday = sum(1 for x in reds if 1 <= x <= 31)
-            
             if (abs(span - target_span) <= 3 and
                 abs(s - target_sum) <= 10 and
                 abs(z1 - target_z1) <= 2 and

@@ -573,6 +573,7 @@ def api_comparison():
 @app.route('/api/status')
 def api_status():
     """API: 系统状态"""
+    import config as cfg
     report = p.load_saved()
     return jsonify({
         'data_version': dh.latest_issue,
@@ -585,6 +586,11 @@ def api_status():
         'should_fetch': should_fetch_now(),
         'draw_weekdays': DRAW_WEEKDAYS,
         'update_cron': f"{UPDATE_HOUR:02d}:{UPDATE_MINUTE:02d} weekdays={DRAW_WEEKDAYS}",
+        'scoring_mode': cfg.SCORING_MODE,
+        'scoring_experimental_gate': cfg.SCORING_EXPERIMENTAL_GATE,
+        'evolution_mode': cfg.EVOLUTION_MODE,
+        'backward_mode': cfg.BACKWARD_MODE,
+        'disclaimer': '一致性≠中奖概率；市场可分析、号码近随机',
     })
 
 

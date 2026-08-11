@@ -33,3 +33,9 @@ test:
 
 eval:
 	$(PYTHON) scripts/cli.py eval --n-test 40
+
+cutover:
+	$(PYTHON) scripts/cli.py eval --cutover --n-test 40
+
+migrate-rank:
+	$(PYTHON) scripts/migrate_predictions_rank_v2.py

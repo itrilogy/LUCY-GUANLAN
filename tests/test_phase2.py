@@ -59,15 +59,18 @@ def test_multi_ranker(engine):
 
 
 def test_scoring_gate_blocks_multi(monkeypatch):
-    import os
+    import config as cfg
     from engine.predictor import resolve_scoring_mode
 
     monkeypatch.delenv("SSQ_ALLOW_EXPERIMENTAL_SCORING", raising=False)
+    # 强制开启实验闸：应回退 legacy
+    monkeypatch.setattr(cfg, "SCORING_EXPERIMENTAL_GATE", True)
     mode, note = resolve_scoring_mode("multi")
     assert mode == "legacy"
     assert note == "experimental_gate_blocked"
 
-    monkeypatch.setenv("SSQ_ALLOW_EXPERIMENTAL_SCORING", "1")
+    # 关闭闸：允许 multi
+    monkeypatch.setattr(cfg, "SCORING_EXPERIMENTAL_GATE", False)
     mode2, note2 = resolve_scoring_mode("multi")
     assert mode2 == "multi"
     assert note2 is None

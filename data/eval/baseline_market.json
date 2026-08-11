@@ -1,0 +1,11 @@
+{
+  "protocol": "baseline_market_v1",
+  "n_test": 30,
+  "n_eval": 31,
+  "start_t": 3457,
+  "bet_mape": 0.2726115771985358,
+  "p1c_mae": 5.328235839955181,
+  "latest_issue": "26091",
+  "N": 3488,
+  "created_at": "2026-08-11T17:01:04"
+}

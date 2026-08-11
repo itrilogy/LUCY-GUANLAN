@@ -11,7 +11,8 @@ from typing import Iterable, List, Dict, Any
 
 import numpy as np
 
-from config import RANK_WEIGHTS, FORWARD_COST_ALPHA, BACKWARD_MODE, prize_clamp
+import config as _cfg
+from config import RANK_WEIGHTS, prize_clamp
 
 
 def _minmax(arr: List[float]) -> List[float]:
@@ -33,7 +34,7 @@ class MultiRanker:
         self.nm = nm
         self.behavior = behavior
         self.validator = validator
-        self.alpha = FORWARD_COST_ALPHA if alpha is None else float(alpha)
+        self.alpha = float(alpha if alpha is not None else _cfg.FORWARD_COST_ALPHA)
         self.weights = dict(RANK_WEIGHTS)
 
     def forward_p1c(self, reds, bet_amount=None, t=None) -> dict:
@@ -49,7 +50,7 @@ class MultiRanker:
         }
 
     def _market_fit_raw(self, p1c_hat, current_regime, pool, bet) -> float:
-        if BACKWARD_MODE == "conditional":
+        if _cfg.BACKWARD_MODE == "conditional":
             back = self.validator.backward_conditional(
                 p1c_hat, pool=pool, bet=bet, regime=current_regime
             )

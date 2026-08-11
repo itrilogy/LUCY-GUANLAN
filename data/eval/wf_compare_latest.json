@@ -1,0 +1,28 @@
+{
+  "protocol": "wf_freeze_soft_v1_compare",
+  "seed": 42,
+  "start_t": 3457,
+  "n_test": 30,
+  "legacy": {
+    "mode": "legacy",
+    "n_eval": 30,
+    "avg_hit_red_top1": 0.8666666666666667,
+    "hit_vs_random": 0.7944444444444445,
+    "p1c_mae": 5.390650226817442,
+    "bet_mape": 0.27386709319954355,
+    "actual_crowd_percentile_mean": 0.3716666666666667,
+    "errors": 0
+  },
+  "multi": {
+    "mode": "multi",
+    "n_eval": 30,
+    "avg_hit_red_top1": 0.9333333333333333,
+    "hit_vs_random": 0.8555555555555556,
+    "p1c_mae": 5.390650226817442,
+    "bet_mape": 0.27386709319954355,
+    "actual_crowd_percentile_mean": 0.39249999999999996,
+    "errors": 0
+  },
+  "errors": 0,
+  "created_at": "2026-08-11T17:01:05"
+}

@@ -126,19 +126,38 @@ class DataHub:
         # 重载时关闭旧连接，避免读到过期缓存
         self.db_close()
 
-        self._build_red_features()
         self._build_market_vars()
         self._build_profiles()
 
+        # 特征缓存：指纹未变则跳过重算 red_feat / blue_miss
+        cached = False
+        try:
+            from config import FEATURES_CACHE_ENABLED
+            if FEATURES_CACHE_ENABLED:
+                from engine.features_cache import try_load_features, save_features
+                cached = try_load_features(self)
+        except Exception:
+            cached = False
+
+        if not cached:
+            self._build_red_features()
+            self._blue_miss = np.zeros((16, self.N), dtype=int)
+            last_blue = np.zeros(16, dtype=int)
+            for t in range(self.N):
+                blue = self.data[t]["蓝球"]
+                last_blue[blue - 1] = t
+                for num in range(1, 17):
+                    self._blue_miss[num - 1, t] = t - last_blue[num - 1]
+            try:
+                from config import FEATURES_CACHE_ENABLED
+                if FEATURES_CACHE_ENABLED:
+                    from engine.features_cache import save_features
+                    save_features(self)
+            except Exception:
+                pass
+        # 缓存命中时 blue_miss/red_feat 已写入
+
         self._loaded = True
-        # 预计算蓝球遗漏
-        self._blue_miss = np.zeros((16, self.N), dtype=int)
-        last_blue = np.zeros(16, dtype=int)
-        for t in range(self.N):
-            blue = self.data[t]["蓝球"]
-            last_blue[blue - 1] = t
-            for num in range(1, 17):
-                self._blue_miss[num - 1, t] = t - last_blue[num - 1]
         return self
 
     def reload(self, path=None):

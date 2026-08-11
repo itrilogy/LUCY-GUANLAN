@@ -10,3 +10,4 @@ data/progress.json
 *.egg-info/
 dist/
 build/
+data/features.npz*

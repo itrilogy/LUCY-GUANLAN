@@ -4,5 +4,20 @@
   "N": 3488,
   "mode": "full",
   "boot": true,
-  "updated_at": "2026-08-11T16:32:10"
+  "updated_at": "2026-08-11T16:32:10",
+  "forward_cost_alpha": 0.0,
+  "alpha_var_share": 0.0,
+  "alpha_train_range": [
+    0,
+    3487
+  ],
+  "cutover_decision": "go",
+  "scoring_defaults": {
+    "SCORING_MODE": "multi",
+    "SCORING_EXPERIMENTAL_GATE": false,
+    "EVOLUTION_MODE": "off",
+    "BACKWARD_MODE": "conditional",
+    "applied_from": "cutover_go",
+    "updated_at": "2026-08-11T17:01:05"
+  }
 }

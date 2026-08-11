@@ -5,8 +5,8 @@
 | **Title** | ssq_predictor Engineering Renovation Program |
 | **Author** | Engineering (draft) |
 | **Date** | 2026-08-08 |
-| **Status** | Draft (rev 3 — re-review issues 19–21) |
-| **Revision** | 2026-08-08 — rev 2 issues 1–18; rev 3 issues 19–21 |
+| **Status** | Implemented (PR-00…17 landed 2026-08-11) |
+| **Revision** | 2026-08-11 — full landing PR-14/15/16/17 + residual gaps |
 | **Scope** | `/Users/kwangwah/Project/Lottery` product path `ssq_predictor/` + root research archive |
 | **Baseline freeze** | Post crawl/DataHub/Validator issue→t fixes (see Phase 0) |
 

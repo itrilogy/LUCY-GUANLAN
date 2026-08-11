@@ -12,13 +12,8 @@ import time
 
 import numpy as np
 
-from config import (
-    PREDICT_FILE,
-    TOP_N,
-    SCORING_MODE,
-    SCORING_EXPERIMENTAL_GATE,
-    EVOLUTION_MODE,
-)
+import config as cfg
+from config import PREDICT_FILE, TOP_N
 from engine.numbers import CompoundBetPlanner
 from engine.behavior import BehaviorModel
 from engine.ranker import MultiRanker
@@ -46,17 +41,16 @@ def clear_progress():
 
 
 def _experimental_allowed():
-    if not SCORING_EXPERIMENTAL_GATE:
+    if not cfg.SCORING_EXPERIMENTAL_GATE:
         return True
     return os.environ.get("SSQ_ALLOW_EXPERIMENTAL_SCORING", "0") in ("1", "true", "yes")
 
 
 def resolve_scoring_mode(requested=None):
-    mode = (requested or SCORING_MODE or "legacy").lower()
+    mode = (requested or cfg.SCORING_MODE or "legacy").lower()
     if mode not in ("legacy", "multi", "dual"):
         mode = "legacy"
     if mode in ("multi", "dual") and not _experimental_allowed():
-        # 安全回退
         return "legacy", "experimental_gate_blocked"
     return mode, None
 
@@ -78,7 +72,7 @@ class Predictor:
         mode, gate_note = resolve_scoring_mode(scoring_mode)
 
         # 0. 进化（可关闭）
-        evo_mode = EVOLUTION_MODE
+        evo_mode = cfg.EVOLUTION_MODE
         if evolve and evo_mode == "off":
             write_progress("sampling", 2, "进化已关闭 (EVOLUTION_MODE=off)...")
             evolve = False

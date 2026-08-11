@@ -1,0 +1,12 @@
+services:
+  ssq-predictor:
+    build: .
+    ports:
+      - "8080:8080"
+    volumes:
+      # 持久化数据（可选挂载）
+      - ./data:/app/data
+    environment:
+      - SSQ_STARTUP_FETCH=false
+      # cutover go 后由 data/eval/scoring_defaults.json 控制默认评分
+    restart: unless-stopped

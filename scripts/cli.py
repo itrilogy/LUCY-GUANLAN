@@ -116,12 +116,40 @@ def cmd_eval(args):
     from engine.data_hub import DataHub
     from engine.market import MarketModel
     from engine.numbers import NumberModel
-    from engine.eval import run_walk_forward_smoke, save_kpi
-    from config import DATA_DIR
+    from engine.validator import Validator
+    from engine.behavior import BehaviorModel
+    from engine.eval import (
+        run_walk_forward_smoke,
+        save_kpi,
+        evaluate_gates,
+        write_cutover_decision,
+        apply_cutover_config,
+        ensure_baseline_market,
+    )
+    from config import DATA_DIR, apply_runtime_overrides
+    import config as cfg
 
     dh = DataHub().load()
     mm = MarketModel(dh)
     nm = NumberModel(dh)
+
+    if args.cutover:
+        v = Validator(dh, mm, nm)
+        b = BehaviorModel(dh, nm)
+        ensure_baseline_market(dh, mm, force=args.refresh_baseline)
+        report = evaluate_gates(
+            dh, mm, nm, v, b, n_test=args.n_test, seed=args.seed
+        )
+        path = write_cutover_decision(report)
+        defaults = apply_cutover_config(report["decision"])
+        apply_runtime_overrides()
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        print(f"decision → {report['decision']}")
+        print(f"cutover_decision → {path}")
+        print(f"scoring_defaults → {defaults}")
+        print(f"SCORING_MODE={cfg.SCORING_MODE} GATE={cfg.SCORING_EXPERIMENTAL_GATE} EVO={cfg.EVOLUTION_MODE}")
+        return 0 if report["decision"] == "go" else 2
+
     kpi = run_walk_forward_smoke(dh, mm, nm, n_test=args.n_test, seed=args.seed)
     out = args.out or os.path.join(DATA_DIR, "eval", "wf_smoke_latest.json")
     save_kpi(kpi, out)
@@ -153,10 +181,12 @@ def main():
     p_ts = sub.add_parser("test", help="pytest")
     p_ts.set_defaults(func=cmd_test)
 
-    p_ev = sub.add_parser("eval", help="walk-forward smoke KPI")
+    p_ev = sub.add_parser("eval", help="walk-forward smoke KPI / cutover gates")
     p_ev.add_argument("--n-test", type=int, default=40)
     p_ev.add_argument("--seed", type=int, default=42)
     p_ev.add_argument("--out", type=str, default=None)
+    p_ev.add_argument("--cutover", action="store_true", help="跑 G1–G5 并写 cutover_decision")
+    p_ev.add_argument("--refresh-baseline", action="store_true")
     p_ev.set_defaults(func=cmd_eval)
 
     args = parser.parse_args()

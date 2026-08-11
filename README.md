@@ -109,26 +109,37 @@ ssq_predictor/
 
 ---
 
-## Phase 2 实验评分（默认关闭）
+## 评分默认与 cutover
+
+默认由 `data/eval/scoring_defaults.json` 控制（`make cutover` 写入）。  
+当前 cutover 结果为 **go** 时：默认 `SCORING_MODE=multi`、`EVOLUTION_MODE=off`、条件反向。
 
 ```bash
-# 允许 multi/dual（本地实验）
-export SSQ_ALLOW_EXPERIMENTAL_SCORING=1
-export SSQ_SCORING_MODE=multi          # 或 dual
-export SSQ_BACKWARD_MODE=conditional   # 可选条件近邻反向
-make predict
-# 或浏览器控制台: window.SSQ_MODE='multi' 后点「快速」
+make cutover   # G1–G5 门禁 → cutover_decision.md + scoring_defaults.json
+make eval      # walk-forward smoke
+python3 scripts/calibrate_forward_alpha.py
 ```
 
+覆盖示例：
+
 ```bash
-make eval   # → data/eval/wf_smoke_latest.json
-python3 scripts/calibrate_forward_alpha.py
+export SSQ_SCORING_MODE=legacy
+export SSQ_EVOLUTION_MODE=legacy_consistency   # 研究用全量进化
+export SSQ_SAMPLE_WEIGHTED=1                   # 近窗加权采样
+export SSQ_SAMPLE_BLUE_MODE=empirical
+```
+
+Docker：
+
+```bash
+docker compose up --build
+# 单 worker gunicorn :8080
 ```
 
 ## 改造路线
 
-见 [`docs/ENGINEERING_RENOVATION_PLAN.md`](docs/ENGINEERING_RENOVATION_PLAN.md)（Phase 0–4 / PR-00…17）。  
-Phase 2 多目标排序默认仍 `legacy`。
+见 [`docs/ENGINEERING_RENOVATION_PLAN.md`](docs/ENGINEERING_RENOVATION_PLAN.md)（PR-00…17 **已落地**）。  
+Cutover 产物：`data/eval/cutover_decision.md`。
 
 ## 软著与发行文档
 
