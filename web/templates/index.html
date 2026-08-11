@@ -431,8 +431,11 @@ async function loadComparisonPage(force){
     }
     if(!Array.isArray(CMP))CMP=[];
   }catch(e){CMP=[];console.error('cmp load error:',e);}
-  let h='<h3>预测对照 <small>命中分析 · 已开奖自动点亮 · 未开奖不点亮</small></h3>';
-  h+=`<button class="btn" style="font-size:10px;padding:3px 8px;margin-left:8px;background:#1e2d50;color:#e0e6f0" onclick="loadComparisonPage(true)">↻ 刷新命中</button>`;
+  let h=`<h3 style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
+    <span>预测对照 <small>命中分析 · 已开奖自动点亮 · 未开奖不点亮</small></span>
+    <button type="button" class="btn" style="font-size:10px;padding:3px 8px;background:#1e2d50;color:#e0e6f0;margin:0"
+      onclick="loadComparisonPage(true)">↻ 刷新命中</button>
+  </h3>`;
   let issues=[];let batches=[];
   try{
     issues=[...new Set(CMP.filter(c=>c&&c.target_issue).map(c=>c.target_issue))].sort().reverse();
