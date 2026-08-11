@@ -118,6 +118,38 @@ h3{font-size:14px;color:#f0f4ff;margin:10px 0 6px}
 h3 small{font-size:10px;color:#5a6a8a;font-weight:400}
 footer{text-align:center;padding:14px 0;color:#3a4a6a;font-size:10px;border-top:1px solid #1a2340;margin-top:20px}
 .warn{color:#5a3a1a;font-size:10px;margin-top:4px}
+/* 预测对照：命中点亮（高对比内联为主，class 兜底） */
+.cmp-row{display:flex;flex-direction:column;gap:6px;padding:10px 8px;border-bottom:1px solid #1a2340}
+.cmp-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
+.cmp-balls{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
+.cmp-balls .lbl{color:#7f8fa6;font-size:12px;min-width:36px}
+.cmp-ball{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:26px;height:26px;border-radius:50%;
+  font-size:12px;font-weight:800;line-height:1;
+  color:#fff;flex-shrink:0;
+  border:2px solid transparent;
+}
+.cmp-ball.red{background:#c0392b}
+.cmp-ball.blue{background:#2980b9}
+.cmp-ball.miss{opacity:.32;filter:grayscale(.35)}
+.cmp-ball.hit{
+  opacity:1!important;filter:none!important;
+  background:linear-gradient(145deg,#f1c40f,#e67e22)!important;
+  color:#1a1000!important;
+  border-color:#fff;
+  box-shadow:0 0 0 2px #f39c12,0 0 12px rgba(241,196,15,.95);
+  transform:scale(1.08);
+}
+.cmp-ball.hit.blue{
+  background:linear-gradient(145deg,#5dade2,#1a5276)!important;
+  color:#fff!important;
+  box-shadow:0 0 0 2px #3498db,0 0 12px rgba(52,152,219,.95);
+}
+.cmp-ball.cmp-lg{width:26px;height:26px;font-size:12px}
+.cmp-badge{font-size:11px;padding:2px 8px;border-radius:4px;white-space:nowrap}
+.cmp-badge.drawn{background:rgba(46,204,113,.2);color:#2ecc71;border:1px solid rgba(46,204,113,.45)}
+.cmp-badge.pending{background:rgba(149,165,166,.15);color:#95a5a6;border:1px solid #3a4a6a}
 ::-webkit-scrollbar{width:3px}
 ::-webkit-scrollbar-track{background:#0a0e17}
 ::-webkit-scrollbar-thumb{background:#1e2d50;border-radius:2px}
@@ -373,12 +405,17 @@ async function saveComparison(){
   await sleep(800);pf.style.width='0%';pl.textContent='就绪';
 }
 
-async function loadComparisonPage(){
+async function loadComparisonPage(force){
+  // 每次进入对照页默认强制拉取，确保历史命中/点亮与开奖同步（无需再点保存）
   try{
-    if(!CMP)CMP=await get('/api/predict/comparison');
+    if(force!==false) CMP=null;
+    if(!CMP){
+      CMP=await get('/api/predict/comparison?backfill=1&_t='+Date.now());
+    }
     if(!Array.isArray(CMP))CMP=[];
   }catch(e){CMP=[];console.error('cmp load error:',e);}
-  let h='<h3>预测对照 <small>命中分析</small></h3>';
+  let h='<h3>预测对照 <small>命中分析 · 已开奖自动点亮 · 未开奖不点亮</small></h3>';
+  h+=`<button class="btn" style="font-size:10px;padding:3px 8px;margin-left:8px;background:#1e2d50;color:#e0e6f0" onclick="loadComparisonPage(true)">↻ 刷新命中</button>`;
   let issues=[];let batches=[];
   try{
     issues=[...new Set(CMP.filter(c=>c&&c.target_issue).map(c=>c.target_issue))].sort().reverse();
@@ -394,47 +431,101 @@ async function loadComparisonPage(){
       <option value="">全部批次</option>${batches.map(b=>'<option value="'+b.id+'">#'+b.id+' ('+b.issue+')</option>').join('')}
     </select>
   </div>`;
-  h+='<div id="cmp-results" style="font-size:10px;max-height:600px;overflow-y:auto">';
+  h+='<div id="cmp-results" style="font-size:13px;max-height:70vh;overflow-y:auto">';
   if(CMP.length===0)h+='<div style="color:#5a6a8a;padding:10px;text-align:center">暂无保存记录，先点击 💾保存</div>';
   h+='</div>';
   tcmpDiv.innerHTML=h;
   if(CMP.length>0)filterComparison();
 }
 
+function _cmpParseReds(c){
+  if(Array.isArray(c.reds)) return c.reds.map(Number).filter(n=>!isNaN(n)&&n>0);
+  try{return JSON.parse(c.reds||'[]').map(Number).filter(n=>!isNaN(n)&&n>0);}catch(e){return [];}
+}
+function _cmpParseBlues(c){
+  if(Array.isArray(c.blues)&&c.blues.length) return c.blues.map(Number).filter(n=>!isNaN(n)&&n>0);
+  if(c.blue===null||c.blue===undefined||c.blue==='') return [];
+  if(typeof c.blue==='number') return [c.blue];
+  try{
+    let v=JSON.parse(c.blue);
+    if(Array.isArray(v)) return v.map(Number).filter(n=>!isNaN(n)&&n>0);
+    let n=Number(v); return isNaN(n)?[]:[n];
+  }catch(e){
+    let n=Number(c.blue);
+    return isNaN(n)?[]:[n];
+  }
+}
+/** 对照页专用球：大号 + 命中金亮 / 未中变暗（样式全内联，避免被 .bl 覆盖） */
+function _cmpBall(n, isBlue, isHit, drawn){
+  let num=String(n).padStart(2,'0');
+  let base='display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:12px;font-weight:800;line-height:1;flex-shrink:0;margin:1px;';
+  if(!drawn){
+    // 未开奖：正常红/蓝
+    let bg=isBlue?'#2980b9':'#c0392b';
+    return `<span style="${base}background:${bg};color:#fff;border:2px solid transparent">${num}</span>`;
+  }
+  if(isHit){
+    // 命中：金色高亮（蓝球命中用亮蓝金边）
+    if(isBlue){
+      return `<span title="命中" style="${base}background:linear-gradient(145deg,#5dade2,#1a5276);color:#fff;border:2px solid #fff;box-shadow:0 0 0 2px #f1c40f,0 0 14px rgba(241,196,15,.9);transform:scale(1.1)">${num}</span>`;
+    }
+    return `<span title="命中" style="${base}background:linear-gradient(145deg,#f1c40f,#e67e22);color:#1a1000;border:2px solid #fff;box-shadow:0 0 0 2px #f39c12,0 0 14px rgba(241,196,15,.95);transform:scale(1.1)">${num}</span>`;
+  }
+  // 未中：灰暗
+  let bg=isBlue?'#1a3a55':'#5a2a2a';
+  return `<span style="${base}background:${bg};color:#8899aa;border:2px solid #2a3a4a;opacity:0.45">${num}</span>`;
+}
 function filterComparison(){
   let issue=document.getElementById('cmp-issue')?.value||'';
   let batch=document.getElementById('cmp-batch')?.value||'';
-  let filtered=CMP.filter(c=>(!issue||c.target_issue===issue)&&(!batch||c.batch_id==batch));
+  let filtered=CMP.filter(c=>(!issue||c.target_issue===issue)&&(!batch||String(c.batch_id)===String(batch)));
   let div=document.getElementById('cmp-results');if(!div)return;
   let h='';
   filtered.forEach(c=>{
-    let isCompound=c.entry_type==='compound'||c.reds_count>6;
-    let ballSize=isCompound?'12px':'16px';
-    let ballH=isCompound?'12px':'16px';
-    let ballFont=isCompound?'5px':'7px';
-    let reds=JSON.parse(c.reds||'[]').map(n=>`<span class="bl" style="width:${ballSize};height:${ballH};font-size:${ballFont}">${String(n).padStart(2,'0')}</span>`).join('');
-    let blueBalls='';
-    try{
-      let blues=JSON.parse(c.blue||'[]');
-      if(Array.isArray(blues)){
-        blueBalls=blues.map(b=>`<span class="bl" style="width:${ballSize};height:${ballH};font-size:${ballFont};background:#3498db">${String(b).padStart(2,'0')}</span>`).join('');
-      }
-    }catch(e){
-      blueBalls=c.blue!==null?`<span class="bl" style="width:${ballSize};height:${ballH};font-size:${ballFont};background:#3498db">${String(c.blue).padStart(2,'0')}</span>`:'';
+    let isCompound=c.entry_type==='compound'||(c.reds_count&&c.reds_count>6);
+    let predReds=_cmpParseReds(c);
+    let predBlues=_cmpParseBlues(c);
+    let actualReds=Array.isArray(c.actual_reds)?c.actual_reds.map(Number).filter(n=>n>0):[];
+    let drawn=!!(c.drawn===true || actualReds.length===6);
+    let aSet=new Set(actualReds);
+    let hitReds=new Set(drawn?predReds.filter(n=>aSet.has(Number(n))):[]);
+    let hitBlues=new Set();
+    if(drawn && c.actual_blue!=null && c.actual_blue!==''){
+      let ab=Number(c.actual_blue);
+      hitBlues=new Set(predBlues.filter(b=>Number(b)===ab));
     }
+    // 预测行
+    let predBalls=predReds.map(n=>_cmpBall(n,false,hitReds.has(Number(n)),drawn)).join('')
+      + predBlues.map(b=>_cmpBall(b,true,hitBlues.has(Number(b)),drawn)).join('');
+    // 实际行（已开奖）
     let actualHtml='';
-    if(c.actual_reds){
-      let aReds=c.actual_reds.map(n=>`<span class="bl" style="width:16px;height:16px;font-size:7px;opacity:0.5">${String(n).padStart(2,'0')}</span>`).join('');
-      actualHtml=`<span style="color:#5a6a8a">实际:</span>${aReds}<span class="bl" style="width:16px;height:16px;font-size:7px;background:#3498db;opacity:0.5">${String(c.actual_blue).padStart(2,'0')}</span>`;
+    if(drawn){
+      let predSet=new Set(predReds.map(Number));
+      let aBalls=actualReds.map(n=>_cmpBall(n,false,predSet.has(Number(n)),true)).join('');
+      let aBlueHit=predBlues.some(b=>Number(b)===Number(c.actual_blue));
+      aBalls+=_cmpBall(c.actual_blue,true,aBlueHit,true);
+      actualHtml=`<div class="cmp-balls"><span class="lbl">实际</span>${aBalls}</div>`;
     }
-    let rankDisplay=isCompound?'复'+c.rank:'#'+c.rank;
-    h+=`<div style="display:flex;align-items:center;gap:2px;padding:2px 4px;border-bottom:1px solid #1a2340;overflow-x:auto">
-      <span style="min-width:32px;color:#5a6a8a;font-size:9px">#${c.batch_id}</span>
-      <span style="min-width:36px;color:#7f8fa6;font-size:9px">${c.target_issue}</span>
-      <span style="min-width:16px;font-size:9px">${rankDisplay}</span>
-      <span style="white-space:nowrap">${reds}${blueBalls}</span>
+    let statusBadge=drawn
+      ? `<span class="cmp-badge drawn">已开奖</span>`
+      : `<span class="cmp-badge pending">未开奖</span>`;
+    let hr=hitReds.size, hb=hitBlues.size?1:0;
+    let needR=isCompound?(c.reds_count||predReds.length||6):6;
+    let hitScore=drawn?(`命中 红 ${hr}/${needR} · 蓝 ${hb?'✓':'✗'}`):'待开奖';
+    let hitColor=drawn?(hr>=3?'#2ecc71':(hr>=1?'#f1c40f':'#7f8fa6')):'#7f8fa6';
+    let rankDisplay=isCompound?('复式'+c.rank):('#'+c.rank);
+    let cons=c.consistency!=null?(c.consistency*100).toFixed(0)+'%':'—';
+    h+=`<div class="cmp-row">
+      <div class="cmp-meta">
+        <span style="color:#5a6a8a">批次 #${c.batch_id}</span>
+        <span style="color:#e0e6f0;font-weight:700">期 ${c.target_issue}</span>
+        <span style="color:#f1c40f;font-weight:700">${rankDisplay}</span>
+        ${statusBadge}
+        <span style="margin-left:auto;color:#7f8fa6;font-size:12px">自洽 ${cons}</span>
+        <span style="color:${hitColor};font-size:13px;font-weight:700">${hitScore}</span>
+      </div>
+      <div class="cmp-balls"><span class="lbl">预测</span>${predBalls}</div>
       ${actualHtml}
-      <span style="margin-left:auto;color:#7f8fa6;font-size:8px;white-space:nowrap">⭐${(c.consistency*100).toFixed(0)}% 📊${c.hit_red!==null?c.hit_red+'/6':'?'}</span>
     </div>`;
   });
   if(!h)h='<div style="color:#5a6a8a;padding:10px;text-align:center">暂无匹配记录</div>';

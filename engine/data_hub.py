@@ -526,20 +526,22 @@ class DataHub:
         })
         return stats
 
-    def backfill_prediction_hits(self) -> dict:
+    def backfill_prediction_hits(self, force=False) -> dict:
         """
         用已开奖数据回填 predictions 表的 hit_red / hit_blue。
-        仅处理 hit_red IS NULL 且 target_issue 已在 draws 中的记录。
+        force=False: 仅 hit_red IS NULL
+        force=True:  所有已开奖记录重算（历史数据一键点亮）
         """
         if not self.db:
             return {"updated": 0}
 
-        rows = self.db_query("""
+        where = "" if force else "WHERE p.hit_red IS NULL"
+        rows = self.db_query(f"""
             SELECT p.id, p.reds, p.blue, p.entry_type,
                    d.red1, d.red2, d.red3, d.red4, d.red5, d.red6, d.blue AS actual_blue
             FROM predictions p
             JOIN draws d ON p.target_issue = d.issue
-            WHERE p.hit_red IS NULL
+            {where}
         """)
 
         updated = 0

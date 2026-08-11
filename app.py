@@ -305,6 +305,17 @@ app = Flask(__name__,
     static_folder='web/static',
     static_url_path='/static')
 
+# 开发时模板/静态资源不缓存，避免对照页样式不刷新
+app.config['TEMPLATES_AUTO_RELOAD'] = True
+app.config['SEND_FILE_MAX_AGE_DEFAULT'] = 0
+
+
+@app.after_request
+def _no_cache_html(resp):
+    if resp.content_type and 'text/html' in resp.content_type:
+        resp.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+    return resp
+
 
 @app.route('/')
 def index():
@@ -551,21 +562,98 @@ def api_save_predictions():
 
 @app.route('/api/predict/comparison')
 def api_comparison():
-    """获取历史预测对照数据"""
+    """
+    获取历史预测对照数据。
+
+    已开奖（draws 有该期）：计算命中红/蓝集合，供前端点亮。
+    未开奖：drawn=false，不计算命中。
+    """
+    import json as _json
+
+    # 回填命中：默认全量重算已开奖历史（保证历史预测无需再点保存即可点亮）
+    force_bf = request.args.get("backfill", "1") not in ("0", "false", "no")
+    try:
+        dh.backfill_prediction_hits(force=force_bf)
+    except Exception:
+        try:
+            dh.backfill_prediction_hits(force=False)
+        except Exception:
+            pass
+
     rows = dh.db_query("""
-        SELECT p.id,p.batch_id,p.saved_at,p.target_issue,p.rank,p.reds,p.blue,p.consistency,p.hit_red,p.hit_blue,
+        SELECT p.id,p.batch_id,p.saved_at,p.target_issue,p.rank,p.entry_type,p.reds,p.blue,
+               p.consistency,p.hit_red,p.hit_blue,p.reds_count,p.blues_count,
                d.red1,d.red2,d.red3,d.red4,d.red5,d.red6,d.blue as actual_blue
         FROM predictions p LEFT JOIN draws d ON p.target_issue = d.issue
         ORDER BY p.target_issue DESC, p.rank_order, p.rank
     """)
     results = []
     for r in rows:
+        # parse predicted reds
+        pred_reds_raw = r[6]
+        try:
+            pred_reds = _json.loads(pred_reds_raw) if isinstance(pred_reds_raw, str) else list(pred_reds_raw or [])
+        except Exception:
+            pred_reds = []
+        pred_reds = [int(x) for x in pred_reds if x is not None]
+
+        # parse predicted blue(s)
+        pred_blue_raw = r[7]
+        pred_blues = []
+        if pred_blue_raw is not None:
+            if isinstance(pred_blue_raw, str) and pred_blue_raw.strip().startswith("["):
+                try:
+                    pred_blues = [int(x) for x in _json.loads(pred_blue_raw)]
+                except Exception:
+                    pred_blues = []
+            else:
+                try:
+                    pred_blues = [int(pred_blue_raw)]
+                except (TypeError, ValueError):
+                    pred_blues = []
+
+        has_draw = r[13] is not None  # red1
+        actual_reds = None
+        actual_blue = None
+        hit_red_nums = []
+        hit_blue_nums = []
+        hit_red = r[9]
+        hit_blue = r[10]
+
+        if has_draw:
+            actual_reds = [int(r[13]), int(r[14]), int(r[15]), int(r[16]), int(r[17]), int(r[18])]
+            actual_blue = int(r[19]) if r[19] is not None else None
+            actual_set = set(actual_reds)
+            hit_red_nums = sorted(set(pred_reds) & actual_set)
+            if actual_blue is not None:
+                hit_blue_nums = sorted(b for b in pred_blues if b == actual_blue)
+            # 即时计算（避免 DB 未回填时前端无数据）
+            if hit_red is None:
+                hit_red = len(hit_red_nums)
+            if hit_blue is None:
+                hit_blue = 1 if hit_blue_nums else 0
+
         results.append({
-            'id': r[0], 'batch_id': r[1], 'saved_at': r[2], 'target_issue': r[3],
-            'rank': r[4], 'reds': r[5], 'blue': r[6], 'consistency': r[7],
-            'hit_red': r[8], 'hit_blue': r[9],
-            'actual_reds': [r[10],r[11],r[12],r[13],r[14],r[15]] if r[10] else None,
-            'actual_blue': r[16],
+            'id': r[0],
+            'batch_id': r[1],
+            'saved_at': r[2],
+            'target_issue': r[3],
+            'rank': r[4],
+            'entry_type': r[5] or 'single',
+            'reds': pred_reds,
+            'reds_raw': pred_reds_raw,
+            'blue': pred_blue_raw,
+            'blues': pred_blues,
+            'consistency': r[8],
+            'hit_red': hit_red,
+            'hit_blue': hit_blue,
+            'reds_count': r[11],
+            'blues_count': r[12],
+            'drawn': bool(has_draw),
+            'actual_reds': actual_reds,
+            'actual_blue': actual_blue,
+            'hit_red_nums': hit_red_nums,
+            'hit_blue_nums': hit_blue_nums,
         })
     return jsonify(results)
 
