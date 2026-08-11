@@ -233,18 +233,27 @@ function render(){
   let topB2=parseInt(Object.entries(bCnt).sort((a,b)=>b[1]-a[1])[1][0])||topB;
   allP.push({rank:11,reds:topR,blue:topB,consistency:0.30,cost:0,est_prize1:5});
   allP.push({rank:12,reds:r2,blue:topB2,consistency:0.30,cost:0,est_prize1:5});
-  h+=`<h3>推荐号码 <small>第1-10注基于全验证池双向验证 · 第11-12注为top10频率聚合</small>
+  // 指标图例（置于标题说明之后，【】包裹）
+  let metricLegend='【🛡️抗拥挤 · 📐结构 · 📈市场 · 🏁综合final · ⭐自洽 · 💰成本 · 🎯估头奖注数 · 均非中奖概率】';
+  h+=`<h3>推荐号码 <small>第1-10注基于全验证池双向验证 · 第11-12注为top10频率聚合 ${metricLegend}</small>
     <button onclick="copyNumbers()" style="font-size:9px;padding:2px 8px;border:1px solid #5a6a8a;background:#1a1a2a;color:#7f8fa6;border-radius:4px;cursor:pointer;margin-left:6px">📋复制</button>
   </h3><div class="pg">`;
   allP.forEach(p=>{
     let rb=p.reds.map(r=>`<span class="bl">${String(r).padStart(2,'0')}</span>`).join('');
     let sc=p.scores;
-    let meta=sc
-      ? `抗拥挤${(sc.anti_crowd*100).toFixed(0)} 结构${(sc.structure*100).toFixed(0)} 市场${(sc.market_fit*100).toFixed(0)} · final${(sc.final*100).toFixed(0)} · 自洽${(p.consistency*100).toFixed(0)}%`
-      : `⭐自洽${(p.consistency*100).toFixed(0)}% 💰${p.cost.toFixed(1)} 🎯${p.est_prize1}注`;
+    let meta;
+    if(sc){
+      // multi：仅图标 + 数值
+      meta=`🛡️${(sc.anti_crowd*100).toFixed(0)} 📐${(sc.structure*100).toFixed(0)} 📈${(sc.market_fit*100).toFixed(0)} · 🏁${(sc.final*100).toFixed(0)} · ⭐${(p.consistency*100).toFixed(0)}%`;
+    }else{
+      // legacy / 11-12注频率聚合
+      let cost=(p.cost!=null&&!isNaN(p.cost))?Number(p.cost).toFixed(1):'0.0';
+      let est=(p.est_prize1!=null)?p.est_prize1:0;
+      meta=`⭐${(p.consistency*100).toFixed(0)}% 💰${cost} 🎯${est}注`;
+    }
     h+=`<div class="pi"><span class="pn">#${p.rank}</span>
       <span class="pb">${rb}<span class="bl" style="background:#3498db">${String(p.blue).padStart(2,'0')}</span></span>
-      <span class="pm" title="一致性≠中奖概率">${meta}</span></div>`;
+      <span class="pm" title="指标含义见标题【】内说明；均非中奖概率">${meta}</span></div>`;
   });
   h+=`</div>`;
   h+=`<h3>复式推荐 <small>基于全验证池贪心加权</small></h3><div class="cg">`;
@@ -371,9 +380,17 @@ async function updateData(){
 function copyNumbers(){
   if(!D||!D.predictions)return;
   let txt='双色球推荐号码 ('+D.current_issue+'期)\n'+'='.repeat(30)+'\n';
+  txt+='【🛡️抗拥挤 · 📐结构 · 📈市场 · 🏁综合final · ⭐自洽 · 💰成本 · 🎯估头奖注数】\n';
   D.predictions.forEach(function(p){
     let reds=p.reds.map(function(n){return String(n).padStart(2,'0')}).join(',');
-    txt+='#'+p.rank+' '+reds+'+'+String(p.blue).padStart(2,'0')+'  ⭐'+(p.consistency*100).toFixed(0)+'%\n';
+    let line='#'+p.rank+' '+reds+'+'+String(p.blue).padStart(2,'0')+'  ';
+    if(p.scores){
+      let sc=p.scores;
+      line+='🛡️'+(sc.anti_crowd*100).toFixed(0)+' 📐'+(sc.structure*100).toFixed(0)+' 📈'+(sc.market_fit*100).toFixed(0)+' 🏁'+(sc.final*100).toFixed(0)+' ⭐'+(p.consistency*100).toFixed(0)+'%';
+    }else{
+      line+='⭐'+(p.consistency*100).toFixed(0)+'% 💰'+(p.cost!=null?Number(p.cost).toFixed(1):'0')+' 🎯'+(p.est_prize1||0)+'注';
+    }
+    txt+=line+'\n';
   });
   // 复式
   if(D.compound_plans){
