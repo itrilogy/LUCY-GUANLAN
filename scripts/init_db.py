@@ -45,14 +45,15 @@ CREATE TABLE IF NOT EXISTS predict_batch (
     total_entries INT DEFAULT 0
 );
 
--- 预测对照表
+-- 预测对照表（rank 为 TEXT：'1'..'12' 或 'A'..'D'）
 CREATE TABLE IF NOT EXISTS predictions (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     batch_id    INT NOT NULL REFERENCES predict_batch(batch_id),
     saved_at    TEXT NOT NULL DEFAULT (datetime('now')),
     target_issue TEXT NOT NULL,
     entry_type  TEXT NOT NULL DEFAULT 'single',  -- 'single' 或 'compound'
-    rank        INT NOT NULL,          -- 1~12 或 A~D
+    rank        TEXT NOT NULL,          -- '1'~'12' 或 'A'~'D'
+    rank_order  INT NOT NULL DEFAULT 0, -- 排序键：1..12, 101..104
     reds        TEXT NOT NULL,          -- JSON数组
     blue        INT,
     reds_count  INT DEFAULT 6,
@@ -68,6 +69,7 @@ CREATE TABLE IF NOT EXISTS predictions (
 );
 CREATE INDEX IF NOT EXISTS idx_pred_batch ON predictions(batch_id);
 CREATE INDEX IF NOT EXISTS idx_pred_target ON predictions(target_issue);
+CREATE INDEX IF NOT EXISTS idx_pred_rank_order ON predictions(rank_order);
 """
 
 

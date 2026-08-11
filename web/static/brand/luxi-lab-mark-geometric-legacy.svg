@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256" fill="none" role="img" aria-label="鹿溪联合创新实验室 LUXI Lab">
+  <!--
+    Full-bleed geometric cut of solid field
+    White Y + L blocks run to canvas edges → background reads as “broken” shards
+    Cyan diamond (菱形) at joint = 源启
+  -->
+  <rect width="256" height="256" fill="#0D5E42"/>
+
+  <g fill="#F5F7FA">
+    <!--
+      Y left arm: top-left corner → joint
+      Edges flush with canvas (x=0, y=0)
+    -->
+    <path d="
+      M0 0
+      H96
+      L128 128
+      L72 128
+      L0 48
+      Z"/>
+
+    <!-- Y right arm: top-right corner → joint -->
+    <path d="
+      M256 0
+      H160
+      L128 128
+      L184 128
+      L256 48
+      Z"/>
+
+    <!-- L vertical stem: joint → bottom edge -->
+    <path d="
+      M96 128
+      H160
+      V256
+      H96
+      Z"/>
+
+    <!-- L foot: to right edge + bottom edge -->
+    <path d="
+      M96 188
+      H256
+      V256
+      H96
+      Z"/>
+  </g>
+
+  <!-- Green collar so diamond sits in field cut -->
+  <circle cx="128" cy="128" r="36" fill="#0D5E42"/>
+
+  <!-- Cyan diamond 菱形 (源启) -->
+  <path
+    fill="#00D2FF"
+    d="M128 96
+       L160 128
+       L128 160
+       L96 128
+       Z"
+  />
+</svg>

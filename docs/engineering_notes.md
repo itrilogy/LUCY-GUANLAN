@@ -26,11 +26,24 @@ app.py (Flask + APScheduler)
   └── web/static/           ← CSS
 ```
 
-每日 00:00 调度流程:
+开奖日 22:00 调度流程 (`run_update`, 周二/四/日):
 ```
-爬取数据(0:00) → DataHub重新加载(0:05) → 候选采样(0:10) 
-→ 双向验证(0:15) → 排序输出(0:20) → 更新predict_result.json(0:25)
+爬取 500.com (engine/crawler.py)
+  → merge_rows 合并 JSON + SQLite draws
+  → backfill_prediction_hits 回填 hit_red/hit_blue
+  → DataHub.reload + Market/Number/Validator/Predictor 重建
+  → Predictor.run → predict_result.json
 ```
+启动: `STARTUP_FETCH=auto` 时仅在数据过期（≥STALE_DAYS 或缺开奖日数据）后台爬取。
+CLI: `python3 scripts/crawl_update.py`（支持 `--data-only` / `--predict-only`）
+
+### 反向验证索引
+`Validator.backward` 用 `issue → t`（`DataHub.issue_to_t`）定位前一期，
+不再使用 `draws.id - 1`，避免 SQLite 自增 id 与期序错位。
+
+### 成本分近窗频率
+`NumberModel` 预计算 hit 前缀和，`recent_freq_vector(t)` O(1) 取近 20 期频率；
+历史拟合使用各期自身窗口，采样热路径复用 `_latest_recent`。
 
 ## 算法选型与参数来源
 
@@ -169,7 +182,7 @@ Predictor.run(n_candidates=2000):
 3. 模型依赖 500.com 数据源 —— 源站变更可能导致爬虫失效
 4. 彩民投注行为为反推估计 —— 无真实投注分布数据
 5. 成本模型 r=0.037 —— 信号极弱, 仅为统计显著而非实用显著
-6. Flask 开发服务器不适用于生产环境(需要 gunicorn/wsgi)
+6. Flask 开发服务器不适用于生产环境。建议：`gunicorn -w 1 -b 0.0.0.0:8080 app:app`（**单 worker**，避免多进程重复调度与内存模型分裂）。SQLite 访问已加 RLock；多 worker 非官方支持。
 
 ## 数据库
 

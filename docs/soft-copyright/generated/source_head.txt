@@ -1,0 +1,2890 @@
+# ===== FILE: config.py =====
+"""
+双色球预测分析工具 · 全局配置
+"""
+import os
+
+# ── 路径 ──
+ROOT = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(ROOT, "data")
+SSQ_FILE = os.path.join(DATA_DIR, "ssq_all.json")
+PREDICT_FILE = os.path.join(DATA_DIR, "predict_result.json")
+FEATURES_FILE = os.path.join(DATA_DIR, "features.npz")
+
+# ── 数据源 ──
+SSQ_URL = "https://datachart.500.com/ssq/history/newinc/history.php"
+USER_AGENT = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36"
+FETCH_LIMIT = 5000
+FETCH_TIMEOUT = 60
+FETCH_RETRIES = 3
+
+# ── 分析参数 ──
+N_RED = 33
+N_BLUE = 16
+N_DRAW = 6
+POOL_LOW = 2e8       # <2亿=蓄水
+POOL_HIGH = 10e8     # >10亿=放水
+BIRTHDAY_EFFECT = 1.16  # 生日号效应量
+
+# ── 市场 Regime ──
+REGIME_N_CLUSTERS = 5
+REGIME_PCA_COMPONENTS = 2
+POOL_STATE_NAMES = ["枯竭","低位","正常","高位","超高"]
+
+# ── Markov 转移核 ──
+TRANSITION_N_STATES = 12
+
+# ── 号码采样 ──
+N_CANDIDATES = 10000
+TOP_N = 10
+
+# ── 双向验证 ──
+VALIDATOR_HISTORY_WINDOW = 200
+CONSISTENCY_CURRENT_WEIGHT = 0.7
+CONSISTENCY_ENTROPY_WEIGHT = 0.3
+BACKWARD_LUT_MAX_PRIZE = 200   # prize LUT 上界（与 evolution 夹紧一致）
+BACKWARD_TOP_K = 20            # batch_validate 默认近邻数
+EVOLVE_BACKWARD_TOP_K = 30     # evolution 历史 top_k（暂不统一）
+
+def prize_clamp(est_prize, max_prize=None):
+    """夹紧到 [0, max_prize]，与 evolution 路径 int(round(...)) 一致"""
+    mp = BACKWARD_LUT_MAX_PRIZE if max_prize is None else max_prize
+    return int(round(max(0, min(mp, est_prize))))
+
+# ── 反馈回路系数 (来自历史回归, 固化) ──
+FEEDBACK_POOL_TO_BET_R = 0.678
+FEEDBACK_BET_TO_PRIZE_R = 0.574
+FEEDBACK_PRIZE_TO_POOL_R = -0.341
+
+# ── 遗传进化参数 ──
+EVOLVE_POP_SIZE = 200           # 种群
+EVOLVE_GENERATIONS = 30         # 代数
+EVOLVE_TEST_RATIO = 0.2         # 训练期占比 (后20%=696期)
+EVOLVE_LUT_MAX_PRIZE = BACKWARD_LUT_MAX_PRIZE  # 与 backward LUT 对齐
+EVOLVE_TOP_ELITES = 15          # 每代保留精英数
+EVOLVE_MUTATE_RATE = 0.3        # 变异率
+EVOLVE_CROSSOVER_RATE = 0.7     # 杂交率
+
+# ── 评分模式（Phase 2 默认仍 legacy）──
+SCORING_MODE = os.environ.get("SSQ_SCORING_MODE", "legacy")  # legacy | multi | dual
+SCORING_EXPERIMENTAL_GATE = True  # multi/dual 需 env SSQ_ALLOW_EXPERIMENTAL_SCORING=1
+EVOLUTION_MODE = os.environ.get("SSQ_EVOLUTION_MODE", "legacy_consistency")
+FORWARD_COST_ALPHA = float(os.environ.get("SSQ_FORWARD_COST_ALPHA", "0.05"))
+RANK_WEIGHTS = {
+    "anti_crowd": 0.40,
+    "structure": 0.40,
+    "market_fit": 0.20,
+}
+BACKWARD_MODE = os.environ.get("SSQ_BACKWARD_MODE", "prize")  # prize | conditional
+BACKWARD_DIST_WEIGHTS = {
+    "w_p": 1.0,
+    "w_pool": 0.5,
+    "w_bet": 0.5,
+    "w_r": 0.25,
+}
+
+# ── 引擎重训 ──
+FULL_REFIT_DAYS = 7            # 进程内 soft 后超过 N 天强制 full
+ENGINE_STATE_FILE = os.path.join(DATA_DIR, "engine_state.json")
+
+# ── Web 服务 ──
+HOST = "0.0.0.0"
+PORT = 8080
+DEBUG = False
+
+# ── 更新调度 ──
+# 双色球开奖: 周二/周四/周日 约 21:15，开奖后拉取
+# weekday: Mon=0 ... Sun=6 → 开奖日 = 1(Tue), 3(Thu), 6(Sun)
+DRAW_WEEKDAYS = [1, 3, 6]
+UPDATE_HOUR = 22
+UPDATE_MINUTE = 0
+# 启动时是否自动爬取: "auto"=按数据新鲜度判断, True=总是, False=从不
+STARTUP_FETCH = "auto"
+# 距本地最新开奖超过该天数则视为可能缺期（最大间隔约 3 天）
+STALE_DAYS = 2
+
+# ===== FILE: app.py =====
+#!/usr/bin/env python3
+"""
+双色球预测分析工具 —— Web 服务入口
+
+Flask + APScheduler：开奖日 22:00 自动爬取并预测
+"""
+
+import json, os, sys, threading
+from datetime import datetime, date, timedelta
+
+# 确保项目根目录在Python路径中
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from flask import Flask, jsonify, render_template, request
+from apscheduler.schedulers.background import BackgroundScheduler
+
+from config import (
+    HOST, PORT, DEBUG, PREDICT_FILE,
+    UPDATE_HOUR, UPDATE_MINUTE, DRAW_WEEKDAYS, STARTUP_FETCH, STALE_DAYS,
+    FULL_REFIT_DAYS, ENGINE_STATE_FILE,
+)
+from engine.data_hub import DataHub
+from engine.market import MarketModel
+from engine.numbers import NumberModel
+from engine.validator import Validator
+from engine.predictor import Predictor
+
+# NumPy JSON 兼容
+import numpy as np
+
+class NumpyEncoder(json.JSONEncoder):
+    def default(self, o):
+        if isinstance(o, (np.integer,)): return int(o)
+        if isinstance(o, (np.floating,)): return float(o)
+        if isinstance(o, (np.bool_,)): return bool(o)
+        if isinstance(o, np.ndarray): return o.tolist()
+        return super().default(o)
+
+
+# ── 引擎状态（须在 init_engine 之前定义）──────────────────
+
+def _load_engine_state():
+    try:
+        with open(ENGINE_STATE_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_engine_state(**kwargs):
+    st = _load_engine_state()
+    st.update(kwargs)
+    st["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    try:
+        with open(ENGINE_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[{datetime.now()}] engine_state 写入失败: {e}")
+
+
+def _need_full_refit():
+    """超过 FULL_REFIT_DAYS 或无 last_full_refit → full"""
+    st = _load_engine_state()
+    last = st.get("last_full_refit")
+    if not last:
+        return True
+    try:
+        t0 = datetime.fromisoformat(last)
+        return (datetime.now() - t0).days >= FULL_REFIT_DAYS
+    except Exception:
+        return True
+
+
+# ── 初始化引擎 ──────────────────────────────────────────────
+
+def init_engine():
+    """初始化所有引擎模块（启动 full fit，记录 engine_state）"""
+    dh = DataHub().load()
+    mm = MarketModel(dh)
+    nm = NumberModel(dh)
+    v = Validator(dh, mm, nm)
+    p = Predictor(dh, mm, nm, v)
+    try:
+        _save_engine_state(
+            last_full_refit=datetime.now().isoformat(timespec="seconds"),
+            latest_issue=dh.latest_issue,
+            N=dh.N,
+            mode="full",
+            boot=True,
+        )
+    except Exception:
+        pass
+    return dh, mm, nm, v, p
+
+
+def reinit_engine(mode="auto"):
+    """
+    数据变更后重建模型。
+    mode:
+      - full: 全量 GMM/KMeans + NumberModel
+      - soft: 进程内扩展标签（需已有 mm）；失败则 full
+      - auto: 距上次 full 超过 FULL_REFIT_DAYS → full，否则 soft
+    CLI 应始终 full；本函数给 app 长驻进程使用。
+    """
+    global dh, mm, nm, v, p
+    if mode == "auto":
+        mode = "full" if _need_full_refit() else "soft"
+
+    n_before = getattr(mm, "N", 0) if mm is not None else 0
+    dh = DataHub().reload()
+
+    used = mode
+    if mode == "soft" and mm is not None and n_before > 0:
+        ok = mm.soft_extend(dh)
+        if ok:
+            nm = NumberModel(dh)  # 频率表/成本序列重建（O(N) 可接受）
+            if v is not None:
+                v.invalidate_backward_lut()
+            v = Validator(dh, mm, nm)
+            p = Predictor(dh, mm, nm, v)
+            _save_engine_state(
+                last_soft_extend=datetime.now().isoformat(timespec="seconds"),
+                latest_issue=dh.latest_issue,
+                N=dh.N,
+                mode="soft",
+            )
+            print(f"[{datetime.now()}] soft reinit OK → {dh.latest_issue} N={dh.N}")
+            return dh, mm, nm, v, p
+        used = "full"
+        print(f"[{datetime.now()}] soft reinit 失败，回退 full")
+
+    mm = MarketModel(dh)
+    nm = NumberModel(dh)
+    v = Validator(dh, mm, nm)
+    p = Predictor(dh, mm, nm, v)
+    _save_engine_state(
+        last_full_refit=datetime.now().isoformat(timespec="seconds"),
+        latest_issue=dh.latest_issue,
+        N=dh.N,
+        mode="full",
+    )
+    print(f"[{datetime.now()}] full reinit OK → {dh.latest_issue} N={dh.N} ({used})")
+    return dh, mm, nm, v, p
+
+
+# ── 全局单例 ────────────────────────────────────────────────
+
+dh, mm, nm, v, p = init_engine()
+last_run = None
+last_data_update = None
+_update_lock = threading.Lock()
+
+
+def _latest_draw_date(hub=None):
+    hub = hub or dh
+    try:
+        return datetime.strptime(hub.dates[-1], "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def should_fetch_now(hub=None, now=None):
+    """
+    判断是否需要从远端拉数据。
+
+    - 本地最新开奖距今 >= STALE_DAYS
+    - 或今天是开奖日、已过 UPDATE_HOUR，且本地还没有今天的开奖
+    """
+    hub = hub or dh
+    now = now or datetime.now()
+    latest = _latest_draw_date(hub)
+    if latest is None:
+        return True
+    today = now.date()
+    gap = (today - latest).days
+    if gap >= STALE_DAYS:
+        return True
+    if (
+        today.weekday() in DRAW_WEEKDAYS
+        and now.hour >= UPDATE_HOUR
+        and latest < today
+    ):
+        return True
+    return False
+
+
+def run_update(fetch_data=True):
+    """
+    执行完整更新: 爬取最新开奖 → 重建引擎 → 重跑预测。
+    fetch_data=False 时仅重跑预测（不访问外网）。
+    """
+    global last_run, last_data_update
+    if not _update_lock.acquire(blocking=False):
+        print(f"[{datetime.now()}] 更新已在进行，跳过")
+        return {"success": False, "error": "update_in_progress"}
+    try:
+        print(f"[{datetime.now()}] 开始更新...")
+        data_stats = None
+        if fetch_data:
+            print(f"[{datetime.now()}] 爬取 500.com 最新数据...")
+            data_stats = dh.update_from_remote(
+                progress_callback=lambda m: print(f"  {m}")
+            )
+            if data_stats.get("success"):
+                added = data_stats.get("added", 0)
+                updated = data_stats.get("updated", 0)
+                print(
+                    f"[{datetime.now()}] 数据合并: +{added} 新增, "
+                    f"{updated} 更新, 最新 {data_stats.get('after_issue')} "
+                    f"(共 {data_stats.get('after_n')} 期)"
+                )
+                if added or updated:
+                    reinit_engine(mode="auto")  # 进程内 soft；到期 full
+                last_data_update = datetime.now()
+            else:
+                print(
+                    f"[{datetime.now()}] 数据爬取失败: "
+                    f"{data_stats.get('error')}，使用本地数据继续预测"
+                )
+
+        report = p.run(n_candidates=2000)
+        p.save(report)
+        last_run = datetime.now()
+        print(
+            f"[{datetime.now()}] 更新完成: 数据期={dh.latest_issue}, "
+            f"预测目标={report.get('current_issue')}"
+        )
+        return {
+            "success": True,
+            "latest_issue": dh.latest_issue,
+            "total_draws": dh.N,
+            "predict_issue": report.get("current_issue"),
+            "data_stats": data_stats,
+        }
+    except Exception as e:
+        print(f"[{datetime.now()}] 更新失败: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"success": False, "error": str(e)}
+    finally:
+        _update_lock.release()
+
+
+def _scheduled_draw_update():
+    """开奖日定时任务：强制爬取 + 预测"""
+    print(f"[{datetime.now()}] 开奖日定时更新触发")
+    run_update(fetch_data=True)
+
+
+def _startup_update():
+    """
+    启动策略:
+    - STARTUP_FETCH=True  → 后台完整更新
+    - STARTUP_FETCH=False → 仅在无预测文件时本地预测
+    - STARTUP_FETCH=auto  → 数据可能过期则后台爬取，否则确保有预测结果
+    """
+    need_fetch = False
+    if STARTUP_FETCH is True or str(STARTUP_FETCH).lower() == "true":
+        need_fetch = True
+    elif STARTUP_FETCH is False or str(STARTUP_FETCH).lower() == "false":
+        need_fetch = False
+    else:
+        need_fetch = should_fetch_now()
+
+    if need_fetch:
+        print(f"[{datetime.now()}] 启动: 数据可能过期，后台爬取更新...")
+        threading.Thread(
+            target=lambda: run_update(fetch_data=True),
+            daemon=True,
+            name="startup-update",
+        ).start()
+    else:
+        report = p.load_saved()
+        if report is None:
+            print(f"[{datetime.now()}] 启动: 无缓存预测，本地快速预测...")
+            run_update(fetch_data=False)
+        else:
+            print(
+                f"[{datetime.now()}] 启动: 本地数据新鲜 "
+                f"({dh.latest_issue} / {dh.dates[-1]})，跳过爬取"
+            )
+
+
+# ── 定时器：开奖日 22:00 ────────────────────────────────────
+
+scheduler = BackgroundScheduler()
+scheduler.add_job(
+    _scheduled_draw_update,
+    "cron",
+    day_of_week=",".join(str(d) for d in DRAW_WEEKDAYS),
+    hour=UPDATE_HOUR,
+    minute=UPDATE_MINUTE,
+    id="draw_day_update",
+    replace_existing=True,
+)
+scheduler.start()
+
+_startup_update()
+
+
+# ── Flask ────────────────────────────────────────────────────
+
+app = Flask(__name__,
+    template_folder='web/templates',
+    static_folder='web/static',
+    static_url_path='/static')
+
+
+@app.route('/')
+def index():
+    """主页面"""
+    report = p.load_saved()
+    if report is None:
+        report = p.run(n_candidates=2000)
+        p.save(report)
+
+    return render_template('index.html',
+                         report=report,
+                         last_run=last_run.strftime('%Y-%m-%d %H:%M') if last_run else '首次运行')
+
+
+@app.route('/api/predict')
+def api_predict():
+    """API: 最新预测"""
+    report = p.load_saved()
+    if report is None:
+        report = p.run(n_candidates=2000)
+        p.save(report)
+    return jsonify(report)
+
+
+@app.route('/api/predict/run')
+def api_predict_run():
+    """API: 执行预测。?evolve=true 启用研究用自洽进化；?mode=legacy|multi|dual"""
+    evolve = request.args.get('evolve', 'false').lower() == 'true'
+    mode = request.args.get('mode', None)
+    report = p.run(n_candidates=2000, evolve=evolve, scoring_mode=mode)
+    p.save(report)
+    return jsonify(report)
+
+
+@app.route('/api/predict/progress')
+def api_progress():
+    """API: 轮询当前进度"""
+    from config import ROOT
+    prog_file = os.path.join(ROOT, 'data', 'progress.json')
+    try:
+        with open(prog_file) as f:
+            return jsonify(json.load(f))
+    except:
+        return jsonify({'running': False, 'stage': 'idle', 'progress': 0, 'message': '就绪'})
+
+
+@app.route('/api/predict/history')
+def api_history():
+    """API: 历史趋势数据"""
+    from collections import Counter
+    N = dh.N
+
+    # 红蓝球频率
+    red_counter = Counter()
+    blue_counter = Counter()
+    for t in range(N):
+        for j in range(1,7):
+            red_counter[dh.data[t][f"红球{j}"]] += 1
+        blue_counter[dh.data[t]["蓝球"]] += 1
+    red_freq = [{'num': n, 'count': c} for n, c in sorted(red_counter.items())]
+    blue_freq = [{'num': n, 'count': c} for n, c in sorted(blue_counter.items())]
+
+    # 三区出现次数 (每期)
+    zone_counts = []
+    for t in range(0, N, 10):  # 每10期采样
+        reds = [dh.data[t][f"红球{j}"] for j in range(1,7)]
+        z1 = sum(1 for r in reds if 1 <= r <= 11)
+        z2 = sum(1 for r in reds if 12 <= r <= 22)
+        z3 = sum(1 for r in reds if 23 <= r <= 33)
+        zone_counts.append({
+            'issue': dh.issues[t],
+            'z1': z1, 'z2': z2, 'z3': z3,
+        })
+
+    # 奖池曲线
+    pool_curve = [{'issue': dh.issues[t], 'pool': float(dh.pool[t]/1e8)}
+                  for t in range(0, N, 20)]
+
+    # Regime分布 + 样本期号
+    regime_counts = Counter()
+    regime_samples = {k: [] for k in range(5)}
+    for t in range(N):
+        k = int(mm._regime_labels[t])
+        regime_counts[k] += 1
+        if len(regime_samples[k]) < 3:
+            regime_samples[k].append({
+                'issue': dh.issues[t],
+                'reds': sorted([dh.data[t][f"红球{j}"] for j in range(1,7)]),
+                'blue': dh.data[t]["蓝球"],
+            })
+
+    regime_dist = [{
+        'regime': int(k),
+        'count': int(v),
+        'pct': round(v/N*100, 1),
+        'samples': regime_samples.get(k, []),
+    } for k, v in regime_counts.items()]
+
+    # 全量分区序列 (用于分区趋势图)
+    zone_series = []
+    for t in range(N):
+        reds = [dh.data[t][f"红球{j}"] for j in range(1,7)]
+        zone_series.append({
+            'z1': sum(1 for r in reds if 1<=r<=11),
+            'z2': sum(1 for r in reds if 12<=r<=22),
+            'z3': sum(1 for r in reds if 23<=r<=33),
+        })
+
+    # 奖池全量序列 (所有期)
+    pool_dense = [{'issue': dh.issues[t], 'pool': float(dh.pool[t]/1e8)}
+                  for t in range(N)]
+
+    # ── 后端渲染 SVG 图表 ──────────────────────────────────
+    def _bar_svg(freq, color, svgW):
+        mn = min(r['count'] for r in freq)
+        mc = max(r['count'] for r in freq)
+        base = max(0, mn - 1)
+        top = min(1000, mc + 1)
+        rng = max(1, top - base)
+        bars = ''
+        n = len(freq)
+        barW = max(3, svgW / (n + 1) - 1)
+        for i, r in enumerate(freq):
+            x = 22 + i * (barW + 1)
+            hgt = max(2, (r['count'] - base) / rng * 82)
+            y = 96 - hgt
+            bars += f'<rect x="{x:.1f}" y="{y:.1f}" width="{barW:.1f}" height="{hgt:.1f}" fill="{color}" rx="1"/>'
+            bars += f'<text x="{x + barW / 2:.1f}" y="{y - 2}" text-anchor="middle" font-size="6" fill="{color}" font-weight="700">{r["count"]}</text>'
+        y_axis = f'<text x="0" y="14" font-size="9" fill="#e0e6f0">{top}</text>'
+        y_axis += f'<text x="0" y="50" font-size="9" fill="#e0e6f0">{round((top + base) / 2)}</text>'
+        y_axis += f'<text x="0" y="96" font-size="9" fill="#e0e6f0">{base}</text>'
+        svg = f'<svg viewBox="0 0 {svgW} 100" style="width:100%;height:110px">{y_axis}{bars}</svg>'
+        return svg, base, top
+
+    red_svg, rb, rt = _bar_svg(red_freq, '#e74c3c', 600)
+    blue_svg, bb, bt = _bar_svg(blue_freq, '#3498db', 280)
+
+    # 奖池折线图 SVG (Y轴从0到max+1)
+    mp = max(p['pool'] for p in pool_dense)
+    rng2 = max(1, mp + 1)  # 范围 = max+1 - 0
+    pts = ' '.join(f"{62 + i / (len(pool_dense) - 1) * 1025:.1f},{3 + (mp - p['pool']) / rng2 * 85:.1f}" for i, p in enumerate(pool_dense))
+    pool_svg = f'''<svg viewBox="0 0 1100 100" style="width:100%;height:120px">
+      <line x1="60" y1="5" x2="60" y2="95" stroke="#1e2d50" stroke-width="0.5"/>
+      <text x="55" y="16" font-size="11" fill="#e0e6f0" text-anchor="end">{mp+1:.0f}</text>
+      <text x="55" y="28" font-size="11" fill="#5a6a8a" text-anchor="end">{((mp+1)*0.8):.0f}</text>
+      <text x="55" y="40" font-size="11" fill="#5a6a8a" text-anchor="end">{((mp+1)*0.6):.0f}</text>
+      <text x="55" y="52" font-size="11" fill="#5a6a8a" text-anchor="end">{((mp+1)*0.4):.0f}</text>
+      <text x="55" y="64" font-size="11" fill="#5a6a8a" text-anchor="end">{((mp+1)*0.2):.0f}</text>
+      <text x="55" y="92" font-size="11" fill="#e0e6f0" text-anchor="end">0</text>
+      <polyline points="{pts}" fill="none" stroke="#f1c40f" stroke-width="1.5"/>
+    </svg>'''
+
+    return jsonify({
+        'red_freq': red_freq,
+        'blue_freq': blue_freq,
+        'zone_counts': zone_counts,
+        'pool_curve': pool_curve,
+        'regime_dist': regime_dist,
+        'zone_series': zone_series,
+        'pool_dense': pool_dense,
+        'red_chart_svg': red_svg,
+        'blue_chart_svg': blue_svg,
+        'pool_chart_svg': pool_svg,
+    })
+
+
+@app.route('/api/periods')
+def api_periods():
+    """API: 分页查询每期号码 (SQLite)"""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 100, type=int)
+    per_page = min(200, max(10, per_page))
+    offset = (page - 1) * per_page
+
+    rows = dh.db_query(
+        "SELECT issue,red1,red2,red3,red4,red5,red6,blue FROM draws ORDER BY issue DESC LIMIT ? OFFSET ?",
+        (per_page, offset)
+    )
+    total = dh.db_query_one("SELECT COUNT(*) FROM draws")[0]
+
+    periods = [{'issue': r[0], 'reds': [r[1],r[2],r[3],r[4],r[5],r[6]], 'blue': r[7]} for r in rows]
+    return jsonify({'periods': periods, 'total': total, 'page': page, 'per_page': per_page})
+
+
+@app.route('/api/update')
+def api_update():
+    """API: 手动触发完整更新（爬取+预测）。?predict_only=1 仅重跑预测"""
+    predict_only = request.args.get('predict_only', '0') in ('1', 'true', 'yes')
+    result = run_update(fetch_data=not predict_only)
+    result['time'] = str(datetime.now())
+    return jsonify(result)
+
+
+@app.route('/api/predict/save', methods=['POST'])
+def api_save_predictions():
+    """保存预测结果（含批次流水号）"""
+    import json as _json
+    data = request.get_json(force=True)
+    target = data.get('target_issue', dh.next_issue)
+    predictions = data.get('predictions', [])
+    compounds = data.get('compound_plans', [])
+
+    # 创建批次
+    total = len(predictions) + len(compounds)
+    dh.db_query("INSERT INTO predict_batch (target_issue,total_entries) VALUES (?,?)", (target, total))
+    batch_id = dh.db_query_one("SELECT MAX(batch_id) FROM predict_batch")[0]
+
+    def _rank_order(label):
+        s = str(label)
+        if s.isdigit():
+            return int(s)
+        if len(s) == 1 and s.isalpha():
+            return 100 + (ord(s.upper()) - 64)  # A=101 ...
+        return 0
+
+    inserted = 0
+    # 保存单注（rank 统一 TEXT + rank_order）
+    for p in predictions:
+        rlabel = str(p['rank'])
+        dh.db_query(
+            "INSERT INTO predictions (batch_id,target_issue,entry_type,rank,rank_order,reds,blue,consistency,cost,est_prize1) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (batch_id, target, 'single', rlabel, _rank_order(rlabel),
+             _json.dumps(p['reds']), p['blue'], p['consistency'], p['cost'], p.get('est_prize1', 0)),
+        )
+        inserted += 1
+    # 保存复式
+    rank_map = {0: 'A', 1: 'B', 2: 'C', 3: 'D'}
+    for i, c in enumerate(compounds):
+        rlabel = rank_map.get(i, chr(65 + i))
+        dh.db_query(
+            "INSERT INTO predictions (batch_id,target_issue,entry_type,rank,rank_order,reds,blue,"
+            "reds_count,blues_count,consistency,cost,total_cost,total_combos) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (batch_id, target, 'compound', rlabel, _rank_order(rlabel),
+             _json.dumps(c['reds']), _json.dumps(c['blues']),
+             len(c['reds']), len(c['blues']), c['consistency'], c.get('avg_match_rate', 0),
+             c['total_cost'], c['total_combos']),
+        )
+        inserted += 1
+
+    return jsonify({'saved': inserted, 'batch_id': batch_id, 'target': target})
+
+
+@app.route('/api/predict/comparison')
+def api_comparison():
+    """获取历史预测对照数据"""
+    rows = dh.db_query("""
+        SELECT p.id,p.batch_id,p.saved_at,p.target_issue,p.rank,p.reds,p.blue,p.consistency,p.hit_red,p.hit_blue,
+               d.red1,d.red2,d.red3,d.red4,d.red5,d.red6,d.blue as actual_blue
+        FROM predictions p LEFT JOIN draws d ON p.target_issue = d.issue
+        ORDER BY p.target_issue DESC, p.rank_order, p.rank
+    """)
+    results = []
+    for r in rows:
+        results.append({
+            'id': r[0], 'batch_id': r[1], 'saved_at': r[2], 'target_issue': r[3],
+            'rank': r[4], 'reds': r[5], 'blue': r[6], 'consistency': r[7],
+            'hit_red': r[8], 'hit_blue': r[9],
+            'actual_reds': [r[10],r[11],r[12],r[13],r[14],r[15]] if r[10] else None,
+            'actual_blue': r[16],
+        })
+    return jsonify(results)
+
+
+@app.route('/api/status')
+def api_status():
+    """API: 系统状态"""
+    report = p.load_saved()
+    return jsonify({
+        'data_version': dh.latest_issue,
+        'latest_date': dh.dates[-1] if dh.dates else None,
+        'next_issue': dh.next_issue,
+        'last_update': str(last_run) if last_run else None,
+        'last_data_update': str(last_data_update) if last_data_update else None,
+        'predict_ready': report is not None,
+        'total_draws': dh.N,
+        'should_fetch': should_fetch_now(),
+        'draw_weekdays': DRAW_WEEKDAYS,
+        'update_cron': f"{UPDATE_HOUR:02d}:{UPDATE_MINUTE:02d} weekdays={DRAW_WEEKDAYS}",
+    })
+
+
+@app.route('/api/predict/backtrack')
+def api_backtrack():
+    """API: 反向回溯 (T_bwd) — 从当前态倒推前期市场状态"""
+    steps = request.args.get('steps', 5, type=int)
+    steps = min(10, max(1, steps))
+
+    current_t = dh.latest_t
+    current_regime = mm.get_regime(current_t)
+    regime_names = ['崩溃态','蓄水态','大奖态','增长态','成熟态']
+
+    # 获取每个Regime的历史均值和范围
+    regime_stats = {}
+    for k in range(5):
+        mask = mm._regime_labels == k
+        if mask.sum() > 0:
+            regime_stats[k] = {
+                'name': regime_names[k],
+                'avg_pool': float(np.mean(dh.pool[mask]) / 1e8),
+                'avg_bet': float(np.mean(dh.bet[mask]) / 1e8),
+                'avg_prize1': float(np.mean(dh.p1c[mask])),
+                'count': int(mask.sum()),
+            }
+
+    # 从当前Regime反向推演
+    chain = [{'step': 0, 'regime': int(current_regime), 'name': regime_names[current_regime],
+              'pool': float(dh.pool[current_t]/1e8), 'bet': float(dh.bet[current_t]/1e8),
+              'prize1': int(dh.p1c[current_t]), 'stat': regime_stats.get(current_regime, {})}]
+
+    current_k = current_regime
+    for s in range(1, steps + 1):
+        bwd_dist = mm.backward_markov(current_k, steps=1)
+        top_k = int(np.argmax(bwd_dist))
+        chain.append({'step': s, 'regime': int(top_k), 'name': regime_names[top_k],
+                      'prob': float(bwd_dist[top_k]),
+                      'pool_range': [float(np.percentile(dh.pool[mm._regime_labels==top_k], 25)/1e8),
+                                     float(np.percentile(dh.pool[mm._regime_labels==top_k], 75)/1e8)],
+                      'prize1_range': [float(np.percentile(dh.p1c[mm._regime_labels==top_k], 25)),
+                                       float(np.percentile(dh.p1c[mm._regime_labels==top_k], 75))],
+                      'stat': regime_stats.get(top_k, {})})
+        current_k = top_k
+
+    return jsonify({'current_issue': dh.issues[current_t], 'chain': chain})
+
+
+if __name__ == '__main__':
+    print(f"启动服务: http://{HOST}:{PORT}")
+    app.run(host=HOST, port=PORT, debug=DEBUG)
+
+# ===== FILE: engine/data_hub.py =====
+#!/usr/bin/env python3
+"""
+DataHub —— 统一数据入口
+
+整合: 号码特征预计算 + 市场变量 + 号码画像 + SQLite查询
+首次启动自动从 JSON 迁移到 SQLite。
+支持从 500.com 增量爬取并同步 JSON / SQLite / 内存特征。
+"""
+
+import json, os, sqlite3, threading
+import numpy as np
+
+from config import SSQ_FILE, DATA_DIR
+
+DB_FILE = os.path.join(DATA_DIR, "ssq.db")
+
+
+def _auto_migrate():
+    """自动迁移 JSON → SQLite + 建表（首次运行时）"""
+    if not os.path.exists(DB_FILE):
+        from scripts.init_db import migrate
+        migrate()
+    else:
+        # 确保预测表存在（增量迁移）
+        try:
+            conn = sqlite3.connect(DB_FILE)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS predict_batch (
+                    batch_id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    target_issue TEXT NOT NULL,
+                    total_entries INT DEFAULT 0
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS predictions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    batch_id INT NOT NULL REFERENCES predict_batch(batch_id),
+                    saved_at TEXT NOT NULL DEFAULT (datetime('now')),
+                    target_issue TEXT NOT NULL,
+                    entry_type TEXT NOT NULL DEFAULT 'single',
+                    rank TEXT NOT NULL,
+                    rank_order INT NOT NULL DEFAULT 0,
+                    reds TEXT NOT NULL,
+                    blue INT,
+                    reds_count INT DEFAULT 6,
+                    blues_count INT DEFAULT 1,
+                    consistency REAL,
+                    cost REAL,
+                    total_cost INT DEFAULT 0,
+                    total_combos INT DEFAULT 0,
+                    est_prize1 INT,
+                    actual INT DEFAULT NULL,
+                    hit_red INT DEFAULT NULL,
+                    hit_blue INT DEFAULT NULL
+                )
+            """)
+            # 增量：旧库可能缺 rank_order
+            try:
+                cols = [r[1] for r in conn.execute("PRAGMA table_info(predictions)").fetchall()]
+                if "rank_order" not in cols:
+                    conn.execute("ALTER TABLE predictions ADD COLUMN rank_order INT NOT NULL DEFAULT 0")
+            except Exception:
+                pass
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pred_batch ON predictions(batch_id)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pred_target ON predictions(target_issue)")
+            conn.execute("CREATE INDEX IF NOT EXISTS idx_pred_rank_order ON predictions(rank_order)")
+            conn.commit()
+            conn.close()
+        except Exception:
+            pass
+
+
+def _row_to_draw_tuple(r: dict) -> tuple:
+    """JSON 行 → draws 表插入参数"""
+    reds = sorted([r[f"红球{j}"] for j in range(1, 7)])
+    return (
+        r["期号"],
+        reds[0], reds[1], reds[2], reds[3], reds[4], reds[5],
+        r["蓝球"],
+        r.get("奖池奖金") or 0,
+        r.get("总投注额") or 0,
+        r.get("一等奖注数") or 0,
+        r.get("一等奖奖金") or 0,
+        r.get("二等奖注数") or 0,
+        r.get("二等奖奖金") or 0,
+        r.get("开奖日期") or "",
+        reds[-1] - reds[0],
+        sum(reds),
+        sum(1 for x in reds if 1 <= x <= 11),
+        sum(1 for x in reds if 12 <= x <= 22),
+        sum(1 for x in reds if 23 <= x <= 33),
+        sum(1 for x in reds if x % 2 == 1),
+        sum(1 for j in range(5) if reds[j + 1] - reds[j] == 1),
+        sum(1 for x in reds if 1 <= x <= 31),
+    )
+
+
+class DataHub:
+    """单例数据入口，提供所有预计算特征 + SQLite查询"""
+
+    _instance = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._loaded = False
+            cls._instance._db = None
+            cls._instance._db_lock = threading.RLock()
+        return cls._instance
+
+    def load(self, path=None, force=False):
+        """加载数据并预计算所有特征。force=True 时强制从磁盘重载。"""
+        if self._loaded and not force:
+            return self
+
+        path = path or SSQ_FILE
+        with open(path, encoding="utf-8") as f:
+            data = json.load(f)
+        data.sort(key=lambda r: int(r["期号"]))
+        self.data = data
+        self.N = len(data)
+
+        # 自动迁移到 SQLite（首次）
+        _auto_migrate()
+        # 重载时关闭旧连接，避免读到过期缓存
+        self.db_close()
+
+        self._build_red_features()
+        self._build_market_vars()
+        self._build_profiles()
+
+        self._loaded = True
+        # 预计算蓝球遗漏
+        self._blue_miss = np.zeros((16, self.N), dtype=int)
+        last_blue = np.zeros(16, dtype=int)
+        for t in range(self.N):
+            blue = self.data[t]["蓝球"]
+            last_blue[blue - 1] = t
+            for num in range(1, 17):
+                self._blue_miss[num - 1, t] = t - last_blue[num - 1]
+        return self
+
+    def reload(self, path=None):
+        """强制从 JSON 重载并重建特征"""
+        return self.load(path=path, force=True)
+
+    # ── SQLite 查询接口 ────────────────────────────────────────
+
+    @property
+    def db(self):
+        if self._db is None:
+            if os.path.exists(DB_FILE):
+                self._db = sqlite3.connect(DB_FILE, check_same_thread=False)
+                self._db.row_factory = sqlite3.Row
+        return self._db
+
+    def db_query(self, sql, params=()):
+        """执行 SQL 并返回所有行（读写均持 RLock）"""
+        if not self.db:
+            return []
+        lock = getattr(self, "_db_lock", None)
+        if lock is None:
+            self._db_lock = threading.RLock()
+            lock = self._db_lock
+        with lock:
+            if sql.strip().upper().startswith(("INSERT", "UPDATE", "DELETE", "CREATE")):
+                self.db.execute(sql, params)
+                self.db.commit()
+                return []
+            return self.db.execute(sql, params).fetchall()
+
+    def db_query_one(self, sql, params=()):
+        """执行 SQL 返回第一行"""
+        rows = self.db_query(sql, params)
+        return rows[0] if rows else None
+
+    def db_close(self):
+        lock = getattr(self, "_db_lock", None)
+        if lock:
+            with lock:
+                if self._db:
+                    self._db.close()
+                    self._db = None
+        else:
+            if self._db:
+                self._db.close()
+                self._db = None
+
+    # ── 内部构建方法 ──────────────────────────────────────────
+
+    def _build_red_features(self):
+        """33个号码 × N期 × 8维特征（向量化加速）"""
+        N, D = self.N, self.data
+        self.red_feat = np.zeros((33, N, 8))
+
+        # 命中矩阵 hits[t, num-1] — O(N) 构建
+        hits = np.zeros((N, 33), dtype=np.int8)
+        for t in range(N):
+            for j in range(1, 7):
+                hits[t, D[t][f"红球{j}"] - 1] = 1
+
+        pools = np.array([r["奖池奖金"] for r in D], dtype=float)
+        pool_bins = np.percentile(pools, [0, 30, 60, 90, 100])
+        # 奖池分位条件概率
+        pool_corr = np.zeros((33, 4))
+        for b in range(4):
+            lo, hi = pool_bins[b], pool_bins[b + 1]
+            mask = (pools >= lo) & (pools < hi if b < 3 else pools <= hi)
+            denom = max(1, int(mask.sum()))
+            pool_corr[:, b] = hits[mask].sum(axis=0) / denom
+
+        # 跨期继承率
+        inherit = np.zeros(33)
+        if N > 1:
+            inherit = (hits[:-1] * hits[1:]).sum(axis=0).astype(float) / (N - 1)
+
+        # 滑动窗口频率（前缀和）
+        csum = np.vstack([np.zeros((1, 33), dtype=np.int32), np.cumsum(hits, axis=0)])
+
+        def win_count(t, w):
+            lo = max(0, t + 1 - w)
+            return csum[t + 1] - csum[lo]
+
+        # 遗漏值：上次出现位置
+        last_at = np.full(33, -1, dtype=int)
+        prev_miss = np.zeros(33, dtype=int)
+        pool_bin_idx = np.clip(np.searchsorted(pool_bins, pools) - 1, 0, 3)
+
+        for t in range(N):
+            # 更新 last_at
+            appeared = np.where(hits[t] == 1)[0]
+            last_at[appeared] = t
+            miss = t - last_at
+            # 未出现过的号码：遗漏记为 t（与旧逻辑 last_at 初值0 略有差异，更合理）
+            miss = np.where(last_at < 0, t, miss)
+
+            f10 = win_count(t, 10)
+            f20 = win_count(t, 20)
+            f50 = win_count(t, 50)
+            trend = miss - prev_miss if t > 0 else np.zeros(33, dtype=int)
+            prev_miss = miss.copy()
+
+            pb = pool_bin_idx[t]
+            self.red_feat[:, t, 0] = miss
+            self.red_feat[:, t, 1] = f10
+            self.red_feat[:, t, 2] = f20
+            self.red_feat[:, t, 3] = f50
+            self.red_feat[:, t, 4] = trend
+            self.red_feat[:, t, 5] = pool_corr[:, pb]
+            self.red_feat[:, t, 6] = inherit
+            self.red_feat[:, t, 7] = miss / max(1, t + 1)
+
+    def _build_market_vars(self):
+        """市场变量 [N, 14]"""
+        N = self.N
+        self.pool = np.array([r["奖池奖金"] for r in self.data], dtype=float)
+        self.bet = np.array([r["总投注额"] for r in self.data], dtype=float)
+        self.p1c = np.array([r["一等奖注数"] for r in self.data], dtype=float)
+        self.p1a = np.array([r["一等奖奖金"] for r in self.data], dtype=float)
+        self.p2c = np.array([r["二等奖注数"] for r in self.data], dtype=float)
+        self.p2a = np.array([r["二等奖奖金"] for r in self.data], dtype=float)
+        self.issues = [r["期号"] for r in self.data]
+        self.dates = [r["开奖日期"] for r in self.data]
+        # 期号 → 内存下标（供 validator 等按 issue 定位，不依赖 SQLite id）
+        self.issue_to_t = {issue: t for t, issue in enumerate(self.issues)}
+        prize1_total = self.p1c * self.p1a
+        prize2_total = self.p2c * self.p2a
+        major_ratio = np.zeros(N)
+        mask = self.bet > 0
+        major_ratio[mask] = (prize1_total[mask] + prize2_total[mask]) / self.bet[mask] * 100
+        pool_bet_ratio = np.zeros(N)
+        pool_bet_ratio[mask] = self.pool[mask] / self.bet[mask]
+        bet_elasticity = np.zeros(N)
+        bet_elasticity[1:] = self.bet[1:] / (self.pool[:-1] + 1) * 100
+        span_arr = np.zeros(N)
+        sum_arr = np.zeros(N)
+        small_arr = np.zeros(N)
+        cons_arr = np.zeros(N)
+        for t in range(N):
+            reds = sorted([self.data[t][f"红球{j}"] for j in range(1, 7)])
+            s = sum(reds)
+            span_arr[t] = reds[-1] - reds[0]
+            sum_arr[t] = s
+            small_arr[t] = sum(1 for x in reds if x <= 14)
+            cons_arr[t] = sum(1 for j in range(5) if reds[j + 1] - reds[j] == 1)
+        self.market = np.column_stack([
+            self.pool / 1e8, self.bet / 1e8, self.p1c, self.p1a / 1e4,
+            self.p2c, self.p2a / 1e4, prize1_total / 1e8, major_ratio, pool_bet_ratio,
+            bet_elasticity, span_arr, sum_arr, small_arr, cons_arr,
+        ])
+
+    def _build_profiles(self):
+        """号码画像"""
+        self.profiles = []
+        for t in range(self.N):
+            d = self.data[t]
+            reds = sorted([d[f"红球{j}"] for j in range(1, 7)])
+            prime_set = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31}
+            self.profiles.append({
+                "span": reds[-1] - reds[0],
+                "sum": sum(reds),
+                "odd": sum(1 for x in reds if x % 2 == 1),
+                "cons": sum(1 for j in range(5) if reds[j + 1] - reds[j] == 1),
+                "z1": sum(1 for x in reds if 1 <= x <= 11),
+                "z2": sum(1 for x in reds if 12 <= x <= 22),
+                "z3": sum(1 for x in reds if 23 <= x <= 33),
+                "bday": sum(1 for x in reds if 1 <= x <= 31),
+                "non_bday": sum(1 for x in reds if 32 <= x <= 33),
+                "prime": sum(1 for x in reds if x in prime_set),
+                "same_tail": len(set(x % 10 for x in reds)),
+                "blue": d["蓝球"],
+            })
+
+    # ── 便捷查询接口 ──────────────────────────────────────────
+
+    def get_red_features(self, t):
+        """返回 [33, 8]"""
+        return self.red_feat[:, t, :]
+
+    def get_blue_features(self, t):
+        """返回 [16, 4] 蓝球特征"""
+        bf = np.zeros((16, 4))
+        for num in range(1, 17):
+            bf[num - 1, 0] = self._blue_miss[num - 1, t] if hasattr(self, "_blue_miss") else t
+            appearances = sum(
+                1 for s in range(max(0, t - 10), t + 1) if self.data[s]["蓝球"] == num
+            )
+            bf[num - 1, 1] = appearances
+            if t > 0:
+                bf[num - 1, 2] = (
+                    self._blue_miss[num - 1, t] - self._blue_miss[num - 1, t - 1]
+                    if hasattr(self, "_blue_miss")
+                    else 0
+                )
+            bf[num - 1, 3] = bf[num - 1, 0] / max(1, t + 1)
+        return bf
+
+    def get_market_state(self, t):
+        """返回 [14] 市场状态向量"""
+        return self.market[t]
+
+    def get_profile(self, t):
+        """返回dict"""
+        return self.profiles[t]
+
+    def pool_state(self, t):
+        """0=枯竭~4=超高"""
+        p = self.pool[t]
+        if p < 5e6:
+            return 0
+        if p < 2e8:
+            return 1
+        if p < 1e9:
+            return 2
+        if p < 2e9:
+            return 3
+        return 4
+
+    def pool_state_name(self, t):
+        return ["枯竭", "低位", "正常", "高位", "超高"][self.pool_state(t)]
+
+    # ── 数据持久化 / 增量更新 ──────────────────────────────────
+
+    def save_json(self, path=None):
+        """将当前 data 写回 JSON（按期号升序）"""
+        path = path or SSQ_FILE
+        sorted_data = sorted(self.data, key=lambda r: int(r["期号"]))
+        os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(sorted_data, f, ensure_ascii=False, indent=2)
+        return path
+
+    def _upsert_draw_sqlite(self, row: dict):
+        """将单期写入/覆盖 SQLite draws 表"""
+        if not self.db:
+            _auto_migrate()
+            self.db_close()
+            if not self.db:
+                return
+        params = _row_to_draw_tuple(row)
+        self.db_query(
+            """
+            INSERT INTO draws
+            (issue, red1,red2,red3,red4,red5,red6, blue,
+             pool, bet, prize1_cnt, prize1_amt, prize2_cnt, prize2_amt, draw_date,
+             span, sum_val, zone1,zone2,zone3, odd_cnt, cons_pairs, bday_cnt)
+            VALUES (?,?,?,?,?,?,?,?, ?,?,?,?,?,?,?, ?,?,?,?,?,?,?,?)
+            ON CONFLICT(issue) DO UPDATE SET
+                red1=excluded.red1, red2=excluded.red2, red3=excluded.red3,
+                red4=excluded.red4, red5=excluded.red5, red6=excluded.red6,
+                blue=excluded.blue, pool=excluded.pool, bet=excluded.bet,
+                prize1_cnt=excluded.prize1_cnt, prize1_amt=excluded.prize1_amt,
+                prize2_cnt=excluded.prize2_cnt, prize2_amt=excluded.prize2_amt,
+                draw_date=excluded.draw_date,
+                span=excluded.span, sum_val=excluded.sum_val,
+                zone1=excluded.zone1, zone2=excluded.zone2, zone3=excluded.zone3,
+                odd_cnt=excluded.odd_cnt, cons_pairs=excluded.cons_pairs,
+                bday_cnt=excluded.bday_cnt
+            """,
+            params,
+        )
+
+    def append_new(self, row_dict, rebuild=True):
+        """
+        追加或覆盖一期数据，同步 JSON + SQLite。
+        rebuild=True 时全量重建特征（默认）。
+        """
+        if not self._loaded:
+            self.load()
+        issue = str(row_dict["期号"])
+        existing = {r["期号"]: i for i, r in enumerate(self.data)}
+        if issue in existing:
+            self.data[existing[issue]] = row_dict
+        else:
+            self.data.append(row_dict)
+        self.data.sort(key=lambda r: int(r["期号"]))
+        self.save_json()
+        self._upsert_draw_sqlite(row_dict)
+        if rebuild:
+            self.reload()
+        return self
+
+    def merge_rows(self, rows: list, rebuild=True) -> dict:
+        """
+        批量合并远端数据。已存在期号若字段有变化则覆盖。
+        返回统计: added / updated / unchanged / total
+        """
+        if not self._loaded:
+            self.load()
+        by_issue = {r["期号"]: r for r in self.data}
+        added, updated, unchanged = 0, 0, 0
+        changed_rows = []
+
+        for row in rows:
+            issue = str(row["期号"])
+            row = dict(row)
+            row["期号"] = issue
+            if issue not in by_issue:
+                by_issue[issue] = row
+                added += 1
+                changed_rows.append(row)
+            else:
+                old = by_issue[issue]
+                keys = [
+                    "红球1", "红球2", "红球3", "红球4", "红球5", "红球6", "蓝球",
+                    "奖池奖金", "一等奖注数", "一等奖奖金", "二等奖注数", "二等奖奖金",
+                    "总投注额", "开奖日期",
+                ]
+                if any(old.get(k) != row.get(k) for k in keys):
+                    by_issue[issue] = row
+                    updated += 1
+                    changed_rows.append(row)
+                else:
+                    unchanged += 1
+
+        if added or updated:
+            self.data = sorted(by_issue.values(), key=lambda r: int(r["期号"]))
+            self.save_json()
+            for row in changed_rows:
+                self._upsert_draw_sqlite(row)
+            if rebuild:
+                self.reload()
+        return {
+            "added": added,
+            "updated": updated,
+            "unchanged": unchanged,
+            "total": len(self.data),
+            "latest_issue": self.data[-1]["期号"] if self.data else None,
+            "latest_date": self.data[-1].get("开奖日期") if self.data else None,
+        }
+
+    def update_from_remote(self, progress_callback=None) -> dict:
+        """
+        从 500.com 爬取最新数据并合并到本地。
+        新开奖到位后自动回填预测命中。
+        """
+        from engine.crawler import fetch_ssq_data
+
+        if not self._loaded:
+            self.load()
+
+        before_issue = self.latest_issue
+        before_n = self.N
+        remote = fetch_ssq_data(progress_callback=progress_callback)
+        if not remote:
+            return {
+                "success": False,
+                "error": "爬取失败或无数据",
+                "added": 0,
+                "updated": 0,
+                "before_issue": before_issue,
+                "before_n": before_n,
+            }
+
+        stats = self.merge_rows(remote, rebuild=True)
+        hit_stats = self.backfill_prediction_hits()
+        stats.update({
+            "success": True,
+            "before_issue": before_issue,
+            "before_n": before_n,
+            "after_issue": self.latest_issue,
+            "after_n": self.N,
+            "hit_backfill": hit_stats,
+            "remote_n": len(remote),
+            "remote_latest": remote[-1]["期号"] if remote else None,
+        })
+        return stats
+
+    def backfill_prediction_hits(self) -> dict:
+        """
+        用已开奖数据回填 predictions 表的 hit_red / hit_blue。
+        仅处理 hit_red IS NULL 且 target_issue 已在 draws 中的记录。
+        """
+        if not self.db:
+            return {"updated": 0}
+
+        rows = self.db_query("""
+            SELECT p.id, p.reds, p.blue, p.entry_type,
+                   d.red1, d.red2, d.red3, d.red4, d.red5, d.red6, d.blue AS actual_blue
+            FROM predictions p
+            JOIN draws d ON p.target_issue = d.issue
+            WHERE p.hit_red IS NULL
+        """)
+
+        updated = 0
+        for r in rows:
+            try:
+                pred_reds = json.loads(r[1]) if isinstance(r[1], str) else r[1]
+                if not isinstance(pred_reds, list):
+                    continue
+                actual_reds = {r[4], r[5], r[6], r[7], r[8], r[9]}
+                hit_red = len(set(pred_reds) & actual_reds)
+
+                # 蓝球：单注为 int；复式可能是 JSON 数组字符串
+                pred_blue = r[2]
+                actual_blue = r[10]
+                hit_blue = 0
+                if pred_blue is not None:
+                    if isinstance(pred_blue, str) and pred_blue.strip().startswith("["):
+                        try:
+                            blues = json.loads(pred_blue)
+                            hit_blue = 1 if actual_blue in blues else 0
+                        except Exception:
+                            hit_blue = 0
+                    else:
+                        try:
+                            hit_blue = 1 if int(pred_blue) == int(actual_blue) else 0
+                        except (TypeError, ValueError):
+                            hit_blue = 0
+
+                self.db_query(
+                    "UPDATE predictions SET hit_red=?, hit_blue=? WHERE id=?",
+                    (hit_red, hit_blue, r[0]),
+                )
+                updated += 1
+            except Exception:
+                continue
+
+        return {"updated": updated}
+
+    @property
+    def latest_t(self):
+        return self.N - 1
+
+    @property
+    def latest_issue(self):
+        return self.issues[-1]
+
+    @property
+    def next_issue(self):
+        """推算下一期期号（格式: 年年期期期）"""
+        last = self.issues[-1]
+        year = int(last[:2])
+        seq = int(last[2:]) + 1
+        if seq > 999:
+            year += 1
+            seq = 1
+        return f"{year:02d}{seq:03d}"
+
+# ===== FILE: engine/crawler.py =====
+#!/usr/bin/env python3
+"""
+双色球数据爬虫 —— 从 500.com 拉取全量/增量开奖数据
+
+字段格式与 data/ssq_all.json 保持一致:
+  期号, 红球1~6, 蓝球, 快乐星期天, 奖池奖金, 一/二等奖注数与奖金, 总投注额, 开奖日期
+"""
+
+from __future__ import annotations
+
+import re
+import time
+from datetime import datetime
+from typing import Callable, Optional
+
+import requests
+from bs4 import BeautifulSoup
+
+from config import FETCH_LIMIT, FETCH_RETRIES, FETCH_TIMEOUT, SSQ_URL, USER_AGENT
+
+# 500.com 双色球 history 表固定 16 列
+_DATA_COLS = 16
+
+
+def _parse_int(value: str) -> Optional[int]:
+    if value is None:
+        return None
+    value = value.strip().replace(",", "").replace(" ", "")
+    if not value:
+        return None
+    try:
+        return int(value)
+    except ValueError:
+        return None
+
+
+def _parse_date(value: str) -> Optional[str]:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    if re.match(r"^\d{4}-\d{2}-\d{2}$", value):
+        return value
+    for fmt in ("%Y/%m/%d", "%Y%m%d", "%Y.%m.%d"):
+        try:
+            return datetime.strptime(value, fmt).strftime("%Y-%m-%d")
+        except ValueError:
+            continue
+    return value
+
+
+def _clean_cell(td) -> str:
+    text = td.get_text().strip()
+    return text.replace("\xa0", "").replace("\u3000", "")
+
+
+def _validate_row(row: dict) -> bool:
+    """校验单期红蓝球范围与互异性"""
+    reds = []
+    for i in range(1, 7):
+        v = row.get(f"红球{i}")
+        if v is None or not (1 <= v <= 33):
+            return False
+        reds.append(v)
+    if len(set(reds)) != 6:
+        return False
+    blue = row.get("蓝球")
+    if blue is None or not (1 <= blue <= 16):
+        return False
+    issue = row.get("期号", "")
+    if not str(issue).isdigit() or len(str(issue)) < 5:
+        return False
+    return True
+
+
+def fetch_ssq_data(
+    limit: int = None,
+    sort: int = 1,
+    max_retries: int = None,
+    timeout: int = None,
+    progress_callback: Optional[Callable[[str], None]] = None,
+) -> list[dict]:
+    """
+    从 500.com 获取双色球历史数据。
+
+    Args:
+        limit: 拉取期数上限 (默认 config.FETCH_LIMIT)
+        sort: 0=最新在前, 1=最早在前
+        max_retries / timeout: 网络参数
+        progress_callback: 进度日志回调
+
+    Returns:
+        list[dict]: 标准字段的期数据；失败返回空列表
+    """
+    limit = limit if limit is not None else FETCH_LIMIT
+    max_retries = max_retries if max_retries is not None else FETCH_RETRIES
+    timeout = timeout if timeout is not None else FETCH_TIMEOUT
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+    }
+    params = {"limit": limit, "sort": sort}
+
+    def log(msg: str):
+        if progress_callback:
+            progress_callback(msg)
+        else:
+            print(f"  {msg}")
+
+    for attempt in range(1, max_retries + 1):
+        log(f"请求 500.com 双色球数据… ({attempt}/{max_retries})")
+        try:
+            resp = requests.get(SSQ_URL, params=params, headers=headers, timeout=timeout)
+            resp.encoding = "utf-8"
+            if resp.status_code != 200:
+                log(f"请求失败 status={resp.status_code}")
+                if attempt < max_retries:
+                    time.sleep(3 * attempt)
+                continue
+
+            soup = BeautifulSoup(resp.text, "html.parser")
+            table = soup.find("table", id="tablelist") or soup.find("table")
+            if not table:
+                log("未找到数据表格")
+                continue
+
+            rows_raw = []
+            for tr in table.find_all("tr"):
+                tds = tr.find_all("td")
+                if len(tds) == _DATA_COLS:
+                    rows_raw.append(tds)
+
+            if not rows_raw:
+                log(f"未找到 {_DATA_COLS} 列数据行")
+                continue
+
+            results = []
+            parse_errors = 0
+            for idx, tds in enumerate(rows_raw):
+                try:
+                    issue = _clean_cell(tds[0])
+                    if not issue.isdigit() or len(issue) < 5:
+                        continue
+
+                    # 红球升序存放，与历史 JSON 一致
+                    reds = sorted(
+                        _parse_int(_clean_cell(tds[i])) for i in range(1, 7)
+                    )
+                    if any(r is None for r in reds):
+                        parse_errors += 1
+                        continue
+
+                    row = {
+                        "期号": issue,
+                        "红球1": reds[0],
+                        "红球2": reds[1],
+                        "红球3": reds[2],
+                        "红球4": reds[3],
+                        "红球5": reds[4],
+                        "红球6": reds[5],
+                        "蓝球": _parse_int(_clean_cell(tds[7])),
+                        "快乐星期天": _parse_int(_clean_cell(tds[8])),
+                        "奖池奖金": _parse_int(_clean_cell(tds[9])),
+                        "一等奖注数": _parse_int(_clean_cell(tds[10])),
+                        "一等奖奖金": _parse_int(_clean_cell(tds[11])),
+                        "二等奖注数": _parse_int(_clean_cell(tds[12])),
+                        "二等奖奖金": _parse_int(_clean_cell(tds[13])),
+                        "总投注额": _parse_int(_clean_cell(tds[14])),
+                        "开奖日期": _parse_date(_clean_cell(tds[15])),
+                    }
+                    # 缺失奖金/投注时兜底为 0，避免下游特征计算崩溃
+                    for k in (
+                        "奖池奖金", "一等奖注数", "一等奖奖金",
+                        "二等奖注数", "二等奖奖金", "总投注额",
+                    ):
+                        if row[k] is None:
+                            row[k] = 0
+
+                    if _validate_row(row):
+                        results.append(row)
+                    else:
+                        parse_errors += 1
+                except Exception as e:
+                    parse_errors += 1
+                    if parse_errors <= 3:
+                        log(f"第 {idx} 行解析异常: {e}")
+
+            if not results:
+                log("解析完成后无有效数据")
+                continue
+
+            # 按期号排序（升序）
+            results.sort(key=lambda r: int(r["期号"]))
+            # 去重（保留后出现的，通常字段更完整）
+            by_issue = {r["期号"]: r for r in results}
+            results = sorted(by_issue.values(), key=lambda r: int(r["期号"]))
+
+            log(
+                f"爬取完成: {len(results)} 期，"
+                f"{results[0]['期号']}~{results[-1]['期号']}，"
+                f"解析跳过 {parse_errors} 行"
+            )
+            return results
+
+        except requests.exceptions.Timeout:
+            log(f"请求超时 (第 {attempt} 次)")
+            if attempt < max_retries:
+                time.sleep(5 * attempt)
+        except requests.exceptions.ConnectionError as e:
+            log(f"连接错误: {e}")
+            if attempt < max_retries:
+                time.sleep(5 * attempt)
+        except Exception as e:
+            log(f"未知错误: {e}")
+            import traceback
+            traceback.print_exc()
+            break
+
+    return []
+
+# ===== FILE: engine/market.py =====
+#!/usr/bin/env python3
+"""
+市场模型 —— Regime 分类 + 反馈回路 + 状态转移
+
+来源: ssq_bettor_behavior.py MarketCycleAnalyzer + FeedbackLoopAnalyzer
+      ssq_prob_kernel.py ProbabilisticTransitionKernel
+"""
+
+import numpy as np
+from sklearn.mixture import GaussianMixture
+from sklearn.linear_model import LinearRegression
+from scipy import stats
+from config import POOL_LOW, POOL_HIGH
+
+
+class MarketModel:
+    """市场状态分析与预测"""
+
+    def __init__(self, dh):
+        self.dh = dh
+        self.N = dh.N
+        self._build_regime_model()
+        self._build_feedback()
+        self._build_markov()
+
+    # ── Regime 分类 ──────────────────────────────────────────
+
+    def _build_regime_model(self):
+        """GMM 聚类识别 5 种市场状态"""
+        X_raw = np.column_stack([
+            np.log10(self.dh.pool + 1),
+            np.log10(self.dh.bet + 1),
+            np.log10(self.dh.p1c + 1),
+        ])
+        # 保存训练集标准化参数，供单期推断复用（勿对单样本再求 mean/std）
+        self._regime_mean = X_raw.mean(0)
+        self._regime_std = X_raw.std(0) + 1e-10
+        X = (X_raw - self._regime_mean) / self._regime_std
+
+        gmm = GaussianMixture(n_components=5, random_state=42, n_init=10)
+        self._regime_labels = gmm.fit_predict(X)
+        self._regime_model = gmm
+
+        # 描述每个 Regime
+        self.regime_info = []
+        for k in range(gmm.n_components):
+            mask = self._regime_labels == k
+            self.regime_info.append({
+                'label': k,
+                'pct': mask.sum() / self.N,
+                'avg_pool': float(self.dh.pool[mask].mean() / 1e8),
+                'avg_bet': float(self.dh.bet[mask].mean() / 1e8),
+                'avg_prize1': float(self.dh.p1c[mask].mean()),
+            })
+
+    def get_regime(self, t=None):
+        """返回 t 期的市场 Regime（优先用训练期标签，避免单样本标准化偏差）"""
+        if t is None:
+            t = self.dh.latest_t
+        if 0 <= t < len(self._regime_labels):
+            return int(self._regime_labels[t])
+        X = np.log10(np.array([[
+            self.dh.pool[t] + 1,
+            self.dh.bet[t] + 1,
+            self.dh.p1c[t] + 1,
+        ]]))
+        X = (X - self._regime_mean) / self._regime_std
+        return int(self._regime_model.predict(X)[0])
+
+    def get_pool_state(self, t=None):
+        """奖池水位: "蓄水"/"平衡"/"放水" """
+        if t is None:
+            t = self.dh.latest_t
+        p = self.dh.pool[t]
+        if p < POOL_LOW:
+            return "蓄水"
+        elif p > POOL_HIGH:
+            return "放水"
+        return "平衡"
+
+    def get_regime_description(self, t=None):
+        """完整的Regime中文描述"""
+        if t is None:
+            t = self.dh.latest_t
+        r = self.get_regime(t)
+        info = self.regime_info[r]
+        return {
+            'regime_id': r,
+            'pool_state': self.get_pool_state(t),
+            'pool': float(self.dh.pool[t]),
+            'bet': float(self.dh.bet[t]),
+            'avg_pool': info['avg_pool'],
+            'avg_bet': info['avg_bet'],
+            'avg_prize1': info['avg_prize1'],
+            'probability': info['pct'],
+        }
+
+    # ── 反馈回路 ─────────────────────────────────────────────
+
+    def _build_feedback(self):
+        """三大反馈回路的回归系数"""
+        N = self.N
+        x_pool = np.log10(self.dh.pool[:-1] + 1).reshape(-1, 1)
+        y_bet = np.log10(self.dh.bet[1:] + 1)
+        self._reg_pool_bet = LinearRegression().fit(x_pool, y_bet)
+
+        x_bet = np.log10(self.dh.bet + 1).reshape(-1, 1)
+        y_p1c = np.log10(self.dh.p1c + 1)
+        self._reg_bet_prize = LinearRegression().fit(x_bet, y_p1c)
+
+    def impulse_response(self, pool_shock=1e8):
+        """奖池冲击→投注响应"""
+        shock_log = np.log10(pool_shock + 1)
+        response_log = self._reg_pool_bet.predict([[shock_log]])[0]
+        response = 10 ** response_log - 1
+        return float(response)
+
+    def predict_bet(self, pool):
+        """给定奖池，预测投注额"""
+        log_pool = np.log10(np.array([[pool + 1]]))
+        log_bet = self._reg_pool_bet.predict(log_pool)[0]
+        return float(10 ** log_bet - 1)
+
+    def predict_p1c_from_market(self, bet: float) -> float:
+        """市场主通道：投注额 → 期望头奖注数（f_M）"""
+        log_p = self._reg_bet_prize.predict([[np.log10(float(bet) + 1)]])[0]
+        return float(10 ** log_p - 1)
+
+    # ── Markov 转移 ──────────────────────────────────────────
+
+    def _build_markov(self, n_states=12):
+        """基于 KMeans 的离散状态转移矩阵（保存标准化参数供 soft 扩展）"""
+        from sklearn.cluster import KMeans
+
+        X = self.dh.market
+        self._markov_mean = X.mean(0)
+        self._markov_std = X.std(0) + 1e-10
+        X_n = (X - self._markov_mean) / self._markov_std
+
+        km = KMeans(n_clusters=n_states, random_state=42, n_init=20)
+        labels = km.fit_predict(X_n)
+        self.markov_labels = labels
+        self.markov_km = km
+        self._n_markov_states = n_states
+        self._rebuild_transition_matrices()
+
+    def _rebuild_transition_matrices(self):
+        """从当前 labels 重算 Markov / Regime 转移（O(N)，soft 可用）"""
+        n_states = int(getattr(self, "_n_markov_states", 12))
+        labels = self.markov_labels
+        N = self.N
+
+        T = np.zeros((n_states, n_states))
+        for t in range(N - 1):
+            T[labels[t], labels[t + 1]] += 1
+        row_sum = T.sum(axis=1, keepdims=True) + 1e-10
+        self.markov_T = T / row_sum
+
+        pi_matrix = np.ones(n_states) / n_states
+        for k in range(n_states):
+            pi_matrix[k] = np.sum(labels == k) / max(1, N)
+        pi_mat = pi_matrix.reshape(1, -1)
+        pi_j_mat = pi_matrix.reshape(-1, 1)
+        T_bwd = self.markov_T.T * pi_mat / (pi_j_mat + 1e-10)
+        col_sum = T_bwd.sum(axis=0, keepdims=True) + 1e-10
+        self.markov_T_bwd = T_bwd / col_sum
+
+        labels_5 = self._regime_labels
+        T5 = np.zeros((5, 5))
+        for t in range(N - 1):
+            T5[labels_5[t], labels_5[t + 1]] += 1
+        row_sum5 = T5.sum(axis=1, keepdims=True) + 1e-10
+        self.regime_T = T5 / row_sum5
+
+        pi5 = np.array([np.sum(labels_5 == k) for k in range(5)], dtype=float) / max(1, N)
+        T5_bwd = self.regime_T.T * pi5.reshape(1, -1) / (pi5.reshape(-1, 1) + 1e-10)
+        col5 = T5_bwd.sum(axis=0, keepdims=True) + 1e-10
+        self.regime_T_bwd = T5_bwd / col5
+
+    def soft_extend(self, dh):
+        """
+        进程内 soft：冻结 GMM/KMeans，仅为新增期预测标签并重算转移。
+        若期数减少或模型未 fit → 返回 False（调用方应 full 重建）。
+        """
+        n_old = len(self._regime_labels)
+        n_new = dh.N
+        if n_new < n_old or self._regime_model is None or self.markov_km is None:
+            return False
+        self.dh = dh
+        self.N = n_new
+        if n_new == n_old:
+            self._rebuild_transition_matrices()
+            return True
+
+        # 新增期：用冻结标准化 + 模型 predict
+        new_regimes = []
+        new_markov = []
+        for t in range(n_old, n_new):
+            Xr = np.log10(np.array([[
+                dh.pool[t] + 1, dh.bet[t] + 1, dh.p1c[t] + 1,
+            ]]))
+            Xr = (Xr - self._regime_mean) / self._regime_std
+            new_regimes.append(int(self._regime_model.predict(Xr)[0]))
+
+            Xm = dh.market[t:t + 1]
+            Xm_n = (Xm - self._markov_mean) / self._markov_std
+            new_markov.append(int(self.markov_km.predict(Xm_n)[0]))
+
+        self._regime_labels = np.concatenate([
+            self._regime_labels, np.array(new_regimes, dtype=self._regime_labels.dtype)
+        ])
+        self.markov_labels = np.concatenate([
+            self.markov_labels, np.array(new_markov, dtype=self.markov_labels.dtype)
+        ])
+        # soft 不重拟合反馈回归
+        self._rebuild_transition_matrices()
+        # 轻量刷新 regime_info 统计
+        self.regime_info = []
+        for k in range(5):
+            mask = self._regime_labels == k
+            if mask.sum() == 0:
+                self.regime_info.append({
+                    "label": k, "pct": 0.0, "avg_pool": 0.0, "avg_bet": 0.0, "avg_prize1": 0.0,
+                })
+            else:
+                self.regime_info.append({
+                    "label": k,
+                    "pct": float(mask.sum() / self.N),
+                    "avg_pool": float(self.dh.pool[mask].mean() / 1e8),
+                    "avg_bet": float(self.dh.bet[mask].mean() / 1e8),
+                    "avg_prize1": float(self.dh.p1c[mask].mean()),
+                })
+        return True
+
+    def get_markov_state(self, t=None):
+        if t is None:
+            t = self.dh.latest_t
+        return self.markov_labels[t]
+
+    def forward_markov(self, state_k, steps=1):
+        """前向推演 Markov 链"""
+        d = np.zeros(self.markov_T.shape[0])
+        d[state_k] = 1.0
+        for _ in range(steps):
+            d = d @ self.markov_T
+        return d
+
+    def backward_markov(self, state_k, steps=1):
+        """反向回溯 Markov 链 (T_bwd)"""
+        d = np.zeros(self.markov_T_bwd.shape[0])
+        d[state_k] = 1.0
+        for _ in range(steps):
+            d = d @ self.markov_T_bwd
+        return d
+
+    def get_transition_prob(self, from_k, to_k):
+        return self.markov_T[from_k, to_k]
+
+# ===== FILE: engine/numbers.py =====
+#!/usr/bin/env python3
+"""
+号码分析 —— 条件分布 + 成本模型 + 候选采样
+
+来源: ssq_zone_predictor.py MarketConditionalModel
+      ssq_house_model.py HouseCostModel
+      ssq_bettor_behavior.py BehaviorInference
+"""
+
+import math, random
+import numpy as np
+from collections import Counter
+from scipy import stats
+from sklearn.linear_model import LinearRegression
+from config import N_RED, BIRTHDAY_EFFECT, N_CANDIDATES
+
+
+# 近窗期数（成本模型 recent 项）
+RECENT_WINDOW = 20
+
+
+class NumberModel:
+    """号码特征分析 + 成本评分 + 候选生成"""
+
+    def __init__(self, dh):
+        self.dh = dh
+        self.N = dh.N
+        self._build_unconditional()
+        self._build_freq_tables()
+        self._build_cost_model()
+
+    # ── 无条件分布 ──────────────────────────────────────────
+
+    def _build_unconditional(self):
+        """号码特征的长期均值与标准差"""
+        self.feat_names = ['span','sum','odd','z1','z2','z3',
+                           'bday','cons','prime','same_tail']
+        arr = np.array([[p[f] for f in self.feat_names]
+                         for p in self.dh.profiles])
+        self.feat_mean = arr.mean(axis=0)
+        self.feat_std = arr.std(axis=0)
+
+    def get_unconditional_dist(self):
+        """返回无条件分布"""
+        return {
+            name: {
+                'mean': self.feat_mean[i],
+                'std': self.feat_std[i],
+                'ci68': (self.feat_mean[i] - self.feat_std[i],
+                         self.feat_mean[i] + self.feat_std[i]),
+                'ci95': (self.feat_mean[i] - 2*self.feat_std[i],
+                         self.feat_mean[i] + 2*self.feat_std[i]),
+            }
+            for i, name in enumerate(self.feat_names)
+        }
+
+    # ── 市场条件微调 ────────────────────────────────────────
+
+    def get_conditional_dist(self, pool_state):
+        """
+        基于奖池状态调整条件分布。
+        效应量来自历史分析 (生日号效应 1.16x, 一区偏移等)
+        """
+        dist = self.get_unconditional_dist()
+
+        # 放水期: 提高生日号/小号权重
+        if pool_state == "放水":
+            dist['bday']['mean'] = min(6, dist['bday']['mean'] + 0.08)
+            dist['z1']['mean'] = min(5, dist['z1']['mean'] + 0.05)
+        # 蓄水期: 降低生日号权重
+        elif pool_state == "蓄水":
+            dist['bday']['mean'] = max(0, dist['bday']['mean'] - 0.08)
+            dist['z1']['mean'] = max(0, dist['z1']['mean'] - 0.05)
+
+        return dist
+
+    # ── 频率表（成本分 recent 项 O(1) 查询）──────────────────
+
+    def _build_freq_tables(self):
+        """
+        预计算每期「近 RECENT_WINDOW 期」各红球出现次数。
+        red_recent[t, num-1] = 在 [t-W+1, t]（含）窗口内号码 num 出现次数。
+        """
+        N = self.N
+        hits = np.zeros((N, N_RED), dtype=np.int16)
+        for t in range(N):
+            for j in range(1, 7):
+                hits[t, self.dh.data[t][f"红球{j}"] - 1] = 1
+        # 前缀和: csum[k] = hits[0]+...+hits[k-1]
+        csum = np.zeros((N + 1, N_RED), dtype=np.int32)
+        np.cumsum(hits, axis=0, out=csum[1:])
+        self._hit_csum = csum
+        self._recent_window = RECENT_WINDOW
+        # 缓存最新期向量，采样热路径零拷贝
+        self._latest_recent = self.recent_freq_vector(self.dh.latest_t)
+
+    def recent_freq_vector(self, t, window=None):
+        """返回 shape (33,) 的近窗出现次数，t 期 inclusive。"""
+        w = window if window is not None else self._recent_window
+        t = int(max(0, min(t, self.N - 1)))
+        lo = max(0, t + 1 - w)
+        return self._hit_csum[t + 1] - self._hit_csum[lo]
+
+    # ── 成本评分模型 ────────────────────────────────────────
+
+    def _build_cost_model(self):
+        """从历史数据拟合成本评分系数（使用各期自身的近窗频率）"""
+        all_costs = []
+        all_p1c = []
+
+        for t in range(self.N):
+            reds = sorted([self.dh.data[t][f"红球{j}"] for j in range(1, 7)])
+            cost = self._raw_cost_score(reds, t=t)
+            all_costs.append(cost)
+            all_p1c.append(self.dh.p1c[t])
+
+        self._all_costs = np.array(all_costs)
+        self._all_p1c = np.array(all_p1c)
+
+        # 成本→头奖注数的回归
+        reg = LinearRegression()
+        reg.fit(self._all_costs.reshape(-1, 1), np.log10(self._all_p1c + 1))
+        self._cost_to_prize = reg
+        # p1c 空间均值（g 残差用）
+        base_p1c = []
+        for t in range(self.N):
+            reds = sorted([self.dh.data[t][f"红球{j}"] for j in range(1, 7)])
+            base_p1c.append(self.cost_to_p1c_base(reds, t=t))
+        self._train_mean_cost_to_p1c = float(np.mean(base_p1c)) if base_p1c else 0.0
+
+    def profile_from_reds(self, reds):
+        """与 DataHub profiles 同字段的结构画像"""
+        reds = sorted(reds)
+        prime_set = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31}
+        return {
+            "span": reds[-1] - reds[0],
+            "sum": sum(reds),
+            "odd": sum(1 for x in reds if x % 2 == 1),
+            "cons": sum(1 for j in range(5) if reds[j + 1] - reds[j] == 1),
+            "z1": sum(1 for x in reds if 1 <= x <= 11),
+            "z2": sum(1 for x in reds if 12 <= x <= 22),
+            "z3": sum(1 for x in reds if 23 <= x <= 33),
+            "bday": sum(1 for x in reds if 1 <= x <= 31),
+            "non_bday": sum(1 for x in reds if 32 <= x <= 33),
+            "prime": sum(1 for x in reds if x in prime_set),
+            "same_tail": len(set(x % 10 for x in reds)),
+        }
+
+    def structure_ll_raw(self, reds) -> float:
+        """对角高斯 LL（省略 log(sd) 常数项）"""
+        prof = self.profile_from_reds(reds)
+        ll = 0.0
+        for i, name in enumerate(self.feat_names):
+            mu = float(self.feat_mean[i])
+            sd = max(float(self.feat_std[i]), 1e-6)
+            z = (float(prof[name]) - mu) / sd
+            z = max(-6.0, min(6.0, z))
+            ll += -0.5 * z * z
+        return float(ll)
+
+    def cost_to_p1c_base(self, reds, t=None) -> float:
+        """成本→p1c（无投注缩放），p1c 量纲"""
+        cost = self._raw_cost_score(reds, t=t)
+        log_p = self._cost_to_prize.predict([[cost]])[0]
+        return float(10 ** log_p - 1)
+
+    def g_cost_p1c(self, reds, t=None) -> float:
+        """p1c 空间残差 g = cost_to_p1c - train_mean"""
+        mean = getattr(self, "_train_mean_cost_to_p1c", 0.0)
+        return self.cost_to_p1c_base(reds, t=t) - mean
+
+    def _raw_cost_score(self, reds, t=None, freq_vec=None):
+        """
+        原始成本分: 正=热门(多人买), 负=冷门(少人买)
+
+        t: 评估期（默认最新期）；freq_vec: 可选预计算近窗频率 (33,)
+        """
+        reds = list(reds)
+        span = max(reds) - min(reds)
+        bday_cnt = sum(1 for x in reds if 1 <= x <= 31)
+        cons = sum(1 for j in range(5) if reds[j + 1] - reds[j] == 1)
+        big = sum(1 for x in reds if x >= 32)
+
+        if freq_vec is None:
+            if t is None:
+                t = self.dh.latest_t
+                freq_vec = self._latest_recent
+            else:
+                freq_vec = self.recent_freq_vector(t)
+        w = float(self._recent_window)
+        recent = sum(float(freq_vec[num - 1]) for num in reds) / w
+
+        cost = (bday_cnt * 0.3 + (7 - span / 5) * 0.15 +
+                cons * 0.2 + recent * 0.2 - big * 0.3)
+        return cost
+
+    def cost_score(self, reds, t=None):
+        """公开接口: 返回归一化的成本分"""
+        return float(self._raw_cost_score(reds, t=t))
+
+    def estimate_prize1(self, reds, bet_amount, t=None):
+        """估算如果开出这组号码的头奖注数"""
+        cost = self._raw_cost_score(reds, t=t)
+        log_p1c = self._cost_to_prize.predict([[cost]])[0]
+        p1c = 10 ** log_p1c - 1
+
+        # 投注量修正: 投注越多, 头奖越多
+        avg_bet = self.dh.bet.mean()
+        p1c *= max(0.5, bet_amount / avg_bet)
+
+        return max(0, int(p1c))
+
+    # ── 候选采样 ────────────────────────────────────────────
+
+    def sample_candidates(self, n=N_CANDIDATES, pool_state="平衡"):
+        """根据条件分布采样候选号码"""
+        dist = self.get_conditional_dist(pool_state)
+        candidates = []
+        seen = set()
+        # 热路径：固定用最新期频率向量，避免每候选重算窗口
+        freq_vec = self._latest_recent
+
+        attempts = 0
+        while len(candidates) < n and attempts < n * 20:
+            attempts += 1
+
+            # 从分布采样红球
+            reds = self._sample_from_dist(dist)
+            if reds is None:
+                continue
+
+            key = tuple(reds)
+            if key in seen:
+                continue
+            seen.add(key)
+
+            blue = random.randint(1, 16)
+            cost = self._raw_cost_score(reds, freq_vec=freq_vec)
+            candidates.append((reds, blue, cost))
+
+        return candidates
+
+    def _sample_from_dist(self, dist):
+        """从特征分布采样一组红球"""
+        target_span = random.gauss(dist['span']['mean'], dist['span']['std'])
+        target_sum = random.gauss(dist['sum']['mean'], dist['sum']['std'])
+        target_z1 = round(random.gauss(dist['z1']['mean'], dist['z1']['std']))
+        target_bday = round(random.gauss(dist['bday']['mean'], dist['bday']['std']))
+
+        target_span = max(1, min(32, int(target_span)))
+        target_sum = max(21, min(183, int(target_sum)))
+        target_z1 = max(0, min(6, target_z1))
+        target_bday = max(0, min(6, target_bday))
+
+        # 拒绝采样
+        for _ in range(500):
+            reds = sorted(random.sample(range(1, 34), 6))
+            span = reds[-1] - reds[0]
+            s = sum(reds)
+            z1 = sum(1 for x in reds if 1 <= x <= 11)
+            bday = sum(1 for x in reds if 1 <= x <= 31)
+
+            if (abs(span - target_span) <= 3 and
+                abs(s - target_sum) <= 10 and
+                abs(z1 - target_z1) <= 2 and
+                bday >= target_bday - 1):
+                return reds
+        return None
+
+    # ── 号码热度分析 ────────────────────────────────────────
+
+    def get_popularity_analysis(self, top_n=10):
+        """热门号和冷门号分析"""
+        t = self.dh.latest_t
+
+        hot_scores = []
+        for num in range(1, 34):
+            feat = self.dh.get_red_features(t)[num-1]
+            # 综合热度分
+            score = (feat[0] * -0.1 +   # 遗漏少→热
+                     feat[1] * 0.5 +    # 近10期频高→热
+                     feat[4] * -0.3 +   # 趋势负(变热)→热
+                     (0.3 if 1 <= num <= 31 else -0.3))  # 生日号→热
+            hot_scores.append((num, score))
+
+        hot_scores.sort(key=lambda x: x[1], reverse=True)
+
+        return {
+            'hot': [num for num, s in hot_scores[:top_n]],
+            'cold': [num for num, s in hot_scores[-top_n:]],
+            'birthday_effect': BIRTHDAY_EFFECT,
+        }
+
+
+class CompoundBetPlanner:
+    """
+    合并复式投注规划器 —— 基于全验证池的加权贪心算法。
+
+    核心: 从 Validator 输出的完整候选池 (2000个带一致性评分的组合) 中,
+    选择使"加权覆盖率"最大化的红球集合R和蓝球集合B。
+
+    加权覆盖率 = Σ consistency(c) for c where c.reds ⊆ R AND c.blue ∈ B
+
+    算法: 贪心边际增益 (每次选 gain/cost 比率最高的球)
+
+    复式自身也过双向验证:
+      复式整体头奖 ≈ mean(forward(c)) for c ⊆ R×B
+      复式一致性 = backward(整体头奖) 与当前Regime的匹配度
+    """
+
+    # 三档预设: (红球数, 蓝球数, 名称, 描述)
+    TIERS = [
+        (8, 1, "经济型", "56元 (28注)"),
+        (9, 1, "标准型", "168元 (84注)"),
+        (10, 2, "豪华型", "840元 (420注)"),
+    ]
+
+    def __init__(self, validator, number_model):
+        self.validator = validator
+        self.nm = number_model
+        self.dh = validator.dh
+        self.mm = validator.mm
+
+    def build_from_candidates(self, candidates, max_red=10, max_blue=2):
+        """
+        从候选池构建最优复式。返回结果包含构建轨迹。
+        """
+        # ... same coverage_score logic ...
+        def coverage_score(c_idx, R, B):
+            c = candidates[c_idx]
+            match = sum(1 for r in c['reds'] if r in R)
+            ratio = match / 6.0
+            blue_ok = (not B) or (c['blue'] in B)
+            return c['consistency'] * ratio if blue_ok else 0.0
+
+        red_to_cands = {num: [] for num in range(1, 34)}
+        for idx, c in enumerate(candidates):
+            for r in c['reds']:
+                red_to_cands[r].append(idx)
+
+        red_weight = {num: sum(candidates[i]['consistency'] for i in lst)
+                      for num, lst in red_to_cands.items()}
+        sorted_reds = sorted(red_weight.keys(), key=lambda n: -red_weight[n])
+
+        blue_weight = {b: sum(c['consistency'] for c in candidates if c['blue'] == b)
+                       for b in range(1, 17)}
+        selected_blues = {max(blue_weight, key=blue_weight.get)}
+        selected_reds = set(sorted_reds[:6])
+
+        # 构建轨迹
+        steps = []
+        all_score = sum(c['consistency'] for c in candidates)
+
+        def current_cov(R, B):
+            return sum(coverage_score(i, R, B) for i in range(len(candidates)))
+
+        init_cov = current_cov(selected_reds, selected_blues)
+        steps.append({
+            'step': len(steps),
+            'action': '基底',
+            'ball': None,
+            'reds_count': len(selected_reds),
+            'coverage': round(init_cov / all_score, 4) if all_score > 0 else 0,
+            'cumulative_gain': 0,
+        })
+
+        # 贪心扩展红球
+        for _ in range(len(selected_reds), max_red):
+            best_gain, best_r = 0, None
+            current = current_cov(selected_reds, selected_blues)
+            for r in sorted_reds:
+                if r in selected_reds: continue
+                R_new = selected_reds | {r}
+                new_cov = current_cov(R_new, selected_blues)
+                gain = new_cov - current
+                if gain > best_gain:
+                    best_gain, best_r = gain, r
+            if best_r is None or best_gain <= 0: break
+            selected_reds.add(best_r)
+            new_cov = current_cov(selected_reds, selected_blues)
+            steps.append({
+                'step': len(steps),
+                'action': '加红球',
+                'ball': best_r,
+                'reds_count': len(selected_reds),
+                'coverage': round(new_cov / all_score, 4) if all_score > 0 else 0,
+                'gain': round(best_gain, 4),
+                'cumulative_gain': round(new_cov - init_cov, 4) if all_score > 0 else 0,
+            })
+
+        # 蓝球扩展
+        for step in range(1, max_blue):
+            best_gain, best_b = 0, None
+            current = current_cov(selected_reds, selected_blues)
+            for b in range(1, 17):
+                if b in selected_blues: continue
+                B_new = selected_blues | {b}
+                new_cov = current_cov(selected_reds, B_new)
+                gain = new_cov - current
+                if gain > best_gain:
+                    best_gain, best_b = gain, b
+            if best_b is None or best_gain <= 0: break
+            selected_blues.add(best_b)
+            new_cov = current_cov(selected_reds, selected_blues)
+            steps.append({
+                'step': len(steps),
+                'action': '加蓝球',
+                'ball': best_b,
+                'reds_count': len(selected_reds),
+                'blues_count': len(selected_blues),
+                'coverage': round(new_cov / all_score, 4) if all_score > 0 else 0,
+                'gain': round(best_gain, 4),
+            })
+
+        total_combos = math.comb(len(selected_reds), 6) * len(selected_blues)
+        total_cost = total_combos * 2
+        final_cov = current_cov(selected_reds, selected_blues)
+        compound_consistency = self._compound_validation(
+            list(selected_reds), list(selected_blues), candidates)
+
+        return {
+            'reds': sorted(selected_reds),
+            'blues': sorted(selected_blues),
+            'total_combos': total_combos,
+            'total_cost': total_cost,
+            'weighted_score': round(final_cov, 2),
+            'coverage_rate': round(final_cov / all_score, 4) if all_score > 0 else 0,
+            'consistency': round(compound_consistency, 4),
+            'avg_match_rate': round(final_cov / all_score, 4) if all_score > 0 else 0,
+            'build_steps': steps,
+        }
+
+    def _compound_validation(self, reds, blues, candidates):
+        """
+        复式级双向验证。
+
+        前向: 复式整体预期头奖 = mean(forward(c)) for c ⊆ R×B
+        反向: 从预期头奖反推Regime
+        一致性: 当前Regime在反向分布中的概率
+        """
+        current_regime = self.mm.get_regime()
+
+        # 找出被复式覆盖的候选
+        red_set, blue_set = set(reds), set(blues)
+        covered = [c for c in candidates
+                   if set(c['reds']).issubset(red_set) and c['blue'] in blue_set]
+
+        if not covered:
+            return 0.3  # 默认中等评分
+
+        # 前向: 平均预期头奖
+        avg_est_prize = int(np.mean([c.get('est_prize1', 5) for c in covered]))
+
+        # 反向: 从预期头奖推Regime
+        back_result = self.validator.backward(avg_est_prize, top_k=30)
+        if back_result is None:
+            return 0.3
+
+        regime_prob = back_result['regime_dist'].get(current_regime, 0)
+
+        # 浓度: 反向Regime分布的集中程度
+        regime_entropy = -sum(p * math.log(p + 1e-10) for p in back_result['regime_dist'].values())
+        max_entropy = math.log(max(1, len(back_result['regime_dist'])))
+        concentration = 1 - regime_entropy / max_entropy if max_entropy > 0 else 1
+
+        score = regime_prob * 0.7 + concentration * 0.3
+        return min(1.0, max(0.0, score))
+
+    def build_tiers(self, candidates):
+        """返回三档预设方案"""
+        results = []
+        for n_red, n_blue, name, desc in self.TIERS:
+            plan = self.build_from_candidates(candidates, max_red=n_red, max_blue=n_blue)
+            plan['tier_name'] = name
+            plan['tier_desc'] = desc
+            results.append(plan)
+        return results
+
+# ===== FILE: engine/validator.py =====
+#!/usr/bin/env python3
+"""
+双向验证器 —— 前向推演 + 反向校验 + 一致性评分
+
+核心循环:
+  前向: 当前市场状态 + 候选号码 → 预期头奖注数
+  反向: 预期头奖注数 → 反推最可能的市场状态
+  评分: 前向假设 vs 反向推得 → 一致性分数
+
+Phase 1: prize LUT + batch_validate 单次 forward/backward
+"""
+
+import numpy as np
+from collections import Counter
+
+from config import (
+    BACKWARD_LUT_MAX_PRIZE,
+    BACKWARD_TOP_K,
+    BACKWARD_DIST_WEIGHTS,
+    CONSISTENCY_CURRENT_WEIGHT,
+    CONSISTENCY_ENTROPY_WEIGHT,
+    prize_clamp,
+)
+
+
+class Validator:
+    """双向验证器"""
+
+    def __init__(self, dh, mm, nm):
+        self.dh = dh
+        self.mm = mm
+        self.nm = nm
+        self.N = dh.N
+        self._backward_lut = None
+        self._backward_lut_meta = None
+
+    # ── 前向通道 ───────────────────────────────────────────
+
+    def forward(self, reds, bet_amount=None):
+        """给定号码组合 → 估算头奖注数"""
+        if bet_amount is None:
+            bet_amount = self.dh.bet[self.dh.latest_t]
+        return self.nm.estimate_prize1(reds, bet_amount)
+
+    # ── 反向通道 ───────────────────────────────────────────
+
+    def backward(self, prize1_count, top_k=None):
+        """
+        反向: 给定头奖注数 → 反推"开奖前的市场状态"
+        用 issue → t 映射定位前一期（不依赖 draws.id）。
+        """
+        if top_k is None:
+            top_k = BACKWARD_TOP_K
+        rows = self.dh.db_query(
+            "SELECT issue, prize1_cnt FROM draws "
+            "ORDER BY ABS(prize1_cnt - ?) LIMIT ?",
+            (int(prize1_count), top_k),
+        )
+        if not rows:
+            return None
+
+        issue_to_t = getattr(self.dh, "issue_to_t", None) or {
+            issue: t for t, issue in enumerate(self.dh.issues)
+        }
+
+        states = []
+        for row in rows:
+            issue = row[0]
+            t = issue_to_t.get(str(issue))
+            if t is None:
+                t = issue_to_t.get(issue)
+            if t is None or t < 1:
+                continue
+            prev_t = t - 1
+            if prev_t >= self.dh.N:
+                continue
+            states.append({
+                "pool_before": float(self.dh.pool[prev_t]),
+                "bet_before": float(self.dh.bet[prev_t]),
+                "regime": int(self.mm._regime_labels[prev_t]),
+                "pool_state": self.mm.get_pool_state(prev_t),
+                "issue": str(issue),
+                "t": t,
+            })
+
+        if not states:
+            return None
+
+        regime_counts = Counter(s["regime"] for s in states)
+        total = len(states)
+
+        return {
+            "regime_dist": {k: v / total for k, v in regime_counts.items()},
+            "most_likely_regime": max(regime_counts, key=regime_counts.get),
+            "avg_pool_before": float(np.mean([s["pool_before"] for s in states])),
+            "avg_bet_before": float(np.mean([s["bet_before"] for s in states])),
+            "pool_state_dist": Counter(s["pool_state"] for s in states),
+            "n_samples": total,
+        }
+
+    def backward_conditional(
+        self, p1c_hat, pool=None, bet=None, regime=None, top_k=None, weights=None
+    ):
+        """
+        条件近邻反向：在 (p1c, pool_prev, bet_prev, regime_prev) 空间找邻居。
+        当 weights 仅 w_p=1 时近似 prize-only。
+        """
+        top_k = BACKWARD_TOP_K if top_k is None else top_k
+        w = dict(BACKWARD_DIST_WEIGHTS)
+        if weights:
+            w.update(weights)
+
+        t_now = self.dh.latest_t
+        pool = float(self.dh.pool[t_now] if pool is None else pool)
+        bet = float(self.dh.bet[t_now] if bet is None else bet)
+        if regime is None:
+            regime = int(self.mm.get_regime(t_now))
+
+        # 历史 t>=1：用 t 的 p1c 与 t-1 的市场状态
+        p1c_hist = self.dh.p1c[1:]
+        pool_prev = self.dh.pool[:-1]
+        bet_prev = self.dh.bet[:-1]
+        regime_prev = self.mm._regime_labels[:-1]
+        n = len(p1c_hist)
+        if n == 0:
+            return self.backward(prize_clamp(p1c_hat), top_k=top_k)
+
+        def _z(x, arr):
+            mu, sd = float(np.mean(arr)), float(np.std(arr)) + 1e-10
+            return (float(x) - mu) / sd
+
+        z_p = _z(p1c_hat, p1c_hist)
+        z_pool = _z(pool, pool_prev)
+        z_bet = _z(bet, bet_prev)
+        zp = (p1c_hist - p1c_hist.mean()) / (p1c_hist.std() + 1e-10)
+        zpo = (pool_prev - pool_prev.mean()) / (pool_prev.std() + 1e-10)
+        zb = (bet_prev - bet_prev.mean()) / (bet_prev.std() + 1e-10)
+        d = (
+            w["w_p"] * np.abs(zp - z_p)
+            + w["w_pool"] * np.abs(zpo - z_pool)
+            + w["w_bet"] * np.abs(zb - z_bet)
+            + w["w_r"] * (regime_prev != regime).astype(float)
+        )
+        k = min(top_k, n)
+        idx = np.argpartition(d, k - 1)[:k]
+        # idx 是相对 p1c_hist 的，对应真实期号 t = idx+1，前一期 prev = idx
+        states = []
+        for i in idx:
+            prev_t = int(i)
+            states.append({
+                "pool_before": float(self.dh.pool[prev_t]),
+                "bet_before": float(self.dh.bet[prev_t]),
+                "regime": int(self.mm._regime_labels[prev_t]),
+                "pool_state": self.mm.get_pool_state(prev_t),
+                "t": prev_t + 1,
+            })
+        if not states:
+            return None
+        regime_counts = Counter(s["regime"] for s in states)
+        total = len(states)
+        return {
+            "regime_dist": {k: v / total for k, v in regime_counts.items()},
+            "most_likely_regime": max(regime_counts, key=regime_counts.get),
+            "avg_pool_before": float(np.mean([s["pool_before"] for s in states])),
+            "avg_bet_before": float(np.mean([s["bet_before"] for s in states])),
+            "pool_state_dist": Counter(s["pool_state"] for s in states),
+            "n_samples": total,
+            "mode": "conditional",
+        }
+
+    # ── Prize LUT ──────────────────────────────────────────
+
+    def ensure_backward_lut(self, max_prize=None, top_k=None):
+        """预计算 prize∈[0,max] 的 backward 结果。"""
+        max_prize = BACKWARD_LUT_MAX_PRIZE if max_prize is None else max_prize
+        top_k = BACKWARD_TOP_K if top_k is None else top_k
+        meta = (max_prize, top_k)
+        if self._backward_lut is not None and self._backward_lut_meta == meta:
+            return
+        self._backward_lut = {
+            p: self.backward(p, top_k=top_k) for p in range(max_prize + 1)
+        }
+        self._backward_lut_meta = meta
+
+    def invalidate_backward_lut(self):
+        """数据变更后必须调用。"""
+        self._backward_lut = None
+        self._backward_lut_meta = None
+
+    def _score_from_backward(self, back_result, current_regime) -> float:
+        """
+        regime_prob * w + concentration * (1-w)
+        不含 tbd_bonus（仅 batch_validate 使用）。
+        """
+        if back_result is None:
+            return 0.0
+        regime_prob = back_result["regime_dist"].get(current_regime, 0)
+        probs = list(back_result["regime_dist"].values())
+        regime_entropy = -sum(p * np.log(p + 1e-10) for p in probs)
+        max_entropy = np.log(max(1, len(probs)))
+        concentration = 1 - regime_entropy / max_entropy if max_entropy > 0 else 1.0
+        w = CONSISTENCY_CURRENT_WEIGHT
+        score = regime_prob * w + concentration * (1.0 - w)
+        return float(min(1.0, max(0.0, score)))
+
+    def _tbd_bonus(self, back_result, tbd_prior) -> float:
+        """batch_validate 专用：与 regime T_bwd 重叠，最高 +0.2。"""
+        if not back_result:
+            return 0.0
+        bwd_total = sum(back_result["regime_dist"].values()) or 1.0
+        overlap = 0.0
+        for r_k, r_p in back_result["regime_dist"].items():
+            overlap += min(r_p / bwd_total, float(tbd_prior[int(r_k)]))
+        return round(overlap * 0.2, 3)
+
+    # ── 一致性评分 ─────────────────────────────────────────
+
+    def consistency_score(self, reds, current_regime=None, bet_amount=None):
+        """
+        完整前向→反向→评分。公开 API 不含 tbd_bonus。
+        """
+        if current_regime is None:
+            current_regime = self.mm.get_regime()
+        if bet_amount is None:
+            bet_amount = self.dh.bet[self.dh.latest_t]
+
+        est_prize = self.forward(reds, bet_amount)
+        back_result = self.backward(est_prize, top_k=BACKWARD_TOP_K)
+        return self._score_from_backward(back_result, current_regime)
+
+    # ── 批量验证 ───────────────────────────────────────────
+
+    def batch_validate(self, candidates):
+        """
+        对批量候选运行验证并按 consistency 降序。
+        单次 forward + LUT backward（含 tbd_bonus）。
+        """
+        current_regime = self.mm.get_regime()
+        bet_amount = self.dh.bet[self.dh.latest_t]
+        tbd_prior = self.mm.regime_T_bwd[current_regime]
+
+        self.ensure_backward_lut(top_k=BACKWARD_TOP_K)
+
+        results = []
+        for reds, blue, cost in candidates:
+            est_prize = self.forward(reds, bet_amount)
+            key = prize_clamp(est_prize)
+            back_result = self._backward_lut.get(key)
+            raw = self._score_from_backward(back_result, current_regime)
+            tbd_bonus = self._tbd_bonus(back_result, tbd_prior)
+            adjusted = min(1.0, raw * (1.0 + tbd_bonus))
+            results.append({
+                "reds": reds,
+                "blue": blue,
+                "cost": cost,
+                "consistency": round(adjusted, 4),
+                "raw_consistency": round(raw, 4),
+                "est_prize1": est_prize,
+                "tbd_bonus": round(tbd_bonus, 3),
+            })
+
+        results.sort(key=lambda x: x["consistency"], reverse=True)
+        return results
+
+    # ── 历史回测 ───────────────────────────────────────────
+
+    def backtest(self, n_test=200):
+        """留一法：高评分 top-1 红球命中 vs 随机基线。"""
+        results = []
+        for t in range(self.N - n_test, self.N - 1):
+            regime_t = self.mm._regime_labels[t]
+            pool_state = self.mm.get_pool_state(t)
+            candidates = self.nm.sample_candidates(200, pool_state)
+
+            validated = []
+            for reds, blue, cost in candidates:
+                score = self.consistency_score(reds, regime_t, self.dh.bet[t])
+                validated.append((score, reds, blue))
+
+            validated.sort(key=lambda x: x[0], reverse=True)
+            actual_reds = sorted([self.dh.data[t + 1][f"红球{j}"] for j in range(1, 7)])
+            if validated:
+                top_reds = validated[0][1]
+                hits = len(set(top_reds) & set(actual_reds))
+                results.append(hits)
+
+        if not results:
+            return {"avg_hits": 0, "hits_list": []}
+
+        return {
+            "avg_hits": float(np.mean(results)),
+            "hits_list": results,
+            "vs_random": float(np.mean(results)) / (6 * 6 / 33),
+        }
+
+# ===== FILE: engine/predictor.py =====
+#!/usr/bin/env python3
+"""
+预测引擎 —— 整合所有模块的编排层
+
+流程:
+  市场状态 → 候选采样 → 双向验证 → [可选 multi 排序] → 复式 → 报告
+"""
+
+import json
+import os
+import time
+
+import numpy as np
+
+from config import (
+    PREDICT_FILE,
+    TOP_N,
+    SCORING_MODE,
+    SCORING_EXPERIMENTAL_GATE,
+    EVOLUTION_MODE,
+)
+from engine.numbers import CompoundBetPlanner
+from engine.behavior import BehaviorModel
+from engine.ranker import MultiRanker
+from engine.evolution import Evolution, save_weights, load_weights, WEIGHTS_FILE
+
+
+def write_progress(stage, pct, msg):
+    try:
+        with open(WEIGHTS_FILE.replace("weights.json", "progress.json"), "w") as f:
+            json.dump(
+                {"running": True, "stage": stage, "progress": pct, "message": msg}, f
+            )
+    except Exception:
+        pass
+
+
+def clear_progress():
+    try:
+        with open(WEIGHTS_FILE.replace("weights.json", "progress.json"), "w") as f:
+            json.dump(
+                {"running": False, "stage": "idle", "progress": 0, "message": "就绪"}, f
+            )
+    except Exception:
+        pass
+
+
+def _experimental_allowed():
+    if not SCORING_EXPERIMENTAL_GATE:
+        return True
+    return os.environ.get("SSQ_ALLOW_EXPERIMENTAL_SCORING", "0") in ("1", "true", "yes")
+
+
+def resolve_scoring_mode(requested=None):
+    mode = (requested or SCORING_MODE or "legacy").lower()
+    if mode not in ("legacy", "multi", "dual"):
+        mode = "legacy"
+    if mode in ("multi", "dual") and not _experimental_allowed():
+        # 安全回退
+        return "legacy", "experimental_gate_blocked"
+    return mode, None
+
+
+class Predictor:
+
+    def __init__(self, dh, mm, nm, validator, behavior=None):
+        self.dh = dh
+        self.mm = mm
+        self.nm = nm
+        self.validator = validator
+        self.behavior = behavior or BehaviorModel(dh, nm)
+        self.bp = CompoundBetPlanner(validator, nm)
+        self.ranker = MultiRanker(dh, mm, nm, self.behavior, validator)
+
+    def run(self, n_candidates=2000, evolve=False, scoring_mode=None):
+        """运行完整预测流程"""
+        t0 = time.time()
+        mode, gate_note = resolve_scoring_mode(scoring_mode)
+
+        # 0. 进化（可关闭）
+        evo_mode = EVOLUTION_MODE
+        if evolve and evo_mode == "off":
+            write_progress("sampling", 2, "进化已关闭 (EVOLUTION_MODE=off)...")
+            evolve = False
+        if evolve:
+            write_progress(
+                "evolution",
+                2,
+                "研究用自洽进化（非命中优化）初始化...",
+            )
+            evo = Evolution(self.dh, self.validator, self.nm)
+            best_gene, _ = evo.run()
+            save_weights(best_gene)
+            write_progress("sampling", 88, "进化完成，进入采样验证...")
+        else:
+            write_progress("sampling", 2, "使用缓存权重预测...")
+
+        regime_desc = self.mm.get_regime_description()
+        pool_state = regime_desc["pool_state"]
+
+        write_progress("sampling", 3, "采样候选号码...")
+        candidates = self.nm.sample_candidates(n_candidates, pool_state)
+
+        write_progress("validating", 5, f"双向验证 {n_candidates} 候选...")
+        validated = self.validator.batch_validate(candidates)
+
+        # multi / dual 排序
+        predictions_legacy = None
+        if mode in ("multi", "dual"):
+            write_progress("ranking", 85, "多目标排序 (anti_crowd/structure/market_fit)...")
+            ranked = self.ranker.rank(validated)
+            if mode == "dual":
+                predictions_legacy = validated[:TOP_N]
+            active = ranked
+            sort_key = "final"
+        else:
+            active = validated
+            sort_key = "consistency"
+
+        write_progress("compound", 92, "规划复式方案...")
+        # 复式覆盖权重：multi 用 final 填入 consistency 字段供 planner
+        plan_src = active
+        if mode in ("multi", "dual"):
+            plan_src = []
+            for r in active:
+                rr = dict(r)
+                rr["consistency"] = float(r.get("final", r.get("consistency", 0)))
+                plan_src.append(rr)
+        compound_plans = self.bp.build_tiers(plan_src)
+
+        top = active[:TOP_N]
+
+        from collections import Counter
+
+        freq_reds = Counter()
+        freq_blues = Counter()
+        for r in top:
+            for n in r["reds"]:
+                freq_reds[n] += 1
+            freq_blues[r["blue"]] += 1
+        top10_reds = sorted([n for n, _ in freq_reds.most_common(10)])
+        top2_blues = sorted([n for n, _ in freq_blues.most_common(2)])
+        combo_cnt2 = __import__("math").comb(len(top10_reds), 6) * len(top2_blues)
+        cost_yuan2 = combo_cnt2 * 2
+        freq_compound = {
+            "tier_name": "高频聚合",
+            "tier_desc": f"{combo_cnt2}注={cost_yuan2}元 · 频次参考",
+            "reds": top10_reds,
+            "blues": top2_blues,
+            "total_combos": combo_cnt2,
+            "total_cost": cost_yuan2,
+            "avg_match_rate": round(
+                len(set(top10_reds) & set(n for r in top for n in r["reds"])) / 60, 4
+            ),
+            "consistency": round(
+                sum(r.get("consistency", 0) for r in top) / max(1, len(top)), 4
+            ),
+            "note": "非评分排序，仅频次参考",
+        }
+        compound_plans.append(freq_compound)
+
+        write_progress("report", 97, "生成报告...")
+        report = self._build_report(
+            regime_desc,
+            top,
+            candidates,
+            t0,
+            compound_plans,
+            scoring_mode=mode,
+            sort_key=sort_key,
+            predictions_legacy=predictions_legacy,
+            gate_note=gate_note,
+            evolve=evolve,
+        )
+        clear_progress()
+        return report
+
+    def _build_report(
+        self,
+        regime_desc,
+        top,
+        all_candidates,
+        t0,
+        compound_plans=None,
+        scoring_mode="legacy",
+        sort_key="consistency",
+        predictions_legacy=None,
+        gate_note=None,
+        evolve=False,
+    ):
+        elapsed = time.time() - t0
+        last_review = self._last_review()
+        popularity = self.behavior.popularity()
+        current_pool = regime_desc["pool"]
+        predicted_bet = self.mm.predict_bet(current_pool)
+        p1c_m = self.mm.predict_p1c_from_market(
+            regime_desc["bet"] if regime_desc.get("bet") else self.dh.bet[self.dh.latest_t]
+        )
+
+        predictions = []
+        for i, r in enumerate(top):
+            entry = {
+                "rank": i + 1,
+                "reds": [int(x) for x in r["reds"]],
+                "blue": int(r["blue"]),
+                "consistency": round(float(r.get("consistency", 0)), 4),
+                "cost": round(float(r.get("cost", 0)), 2),
+                "est_prize1": int(r.get("est_prize1", 0)),
+                "passed": bool(float(r.get("consistency", 0)) > 0.2),
+            }
+            if "scores" in r:
+                entry["scores"] = r["scores"]
+                entry["final"] = round(float(r.get("final", 0)), 4)
+            predictions.append(entry)
+
+        legacy_list = None
+        if predictions_legacy is not None:
+            legacy_list = []
+            for i, r in enumerate(predictions_legacy[:TOP_N]):
+                legacy_list.append({
+                    "rank": i + 1,
+                    "reds": [int(x) for x in r["reds"]],
+                    "blue": int(r["blue"]),
+                    "consistency": round(float(r["consistency"]), 4),
+                    "cost": round(float(r["cost"]), 2),
+                    "est_prize1": int(r.get("est_prize1", 0)),
+                })
+
+        score_field = "final" if scoring_mode in ("multi", "dual") else "consistency"
+        top_score = predictions[0].get(score_field, predictions[0]["consistency"]) if predictions else 0
+        avg_score = (
+            float(np.mean([p.get(score_field, p["consistency"]) for p in predictions]))
+            if predictions
+            else 0
+        )
+
+        return {
+            "update_time": time.strftime("%Y-%m-%d %H:%M:%S"),
+            "current_issue": self.dh.next_issue,
+            "elapsed": round(elapsed, 1),
+            "scoring_mode": scoring_mode,
+            "sort_key": sort_key,
+            "gate_note": gate_note,
+            "evolution_used": bool(evolve),
+            "evolution_note": (
+                "研究用自洽进化（非命中优化）" if evolve else None
+            ),
+            "disclaimer": (
+                "本工具刻画奖池/投注市场状态与组合结构/拥挤度；"
+                "红蓝球近随机；一致性不是中奖概率。"
+            ),
+            "market": {
+                "regime": regime_desc["pool_state"],
+                "regime_id": regime_desc["regime_id"],
+                "pool": int(current_pool),
+                "bet": int(regime_desc["bet"]),
+                "p1c_market_hat": round(float(p1c_m), 2),
+                "predicted_pool_range": [
+                    int(current_pool * 0.9),
+                    int(current_pool * 1.1),
+                ],
+                "predicted_bet_range": [
+                    int(predicted_bet * 0.9),
+                    int(predicted_bet * 1.1),
+                ],
+            },
+            "predictions": predictions,
+            "predictions_legacy": legacy_list,
+            "popularity": {
+                "hot": popularity["hot"],
+                "cold": popularity["cold"],
+                "birthday_effect": popularity["birthday_effect"],
+            },
+            "last_review": last_review,
+            "compound_plans": compound_plans or [],
+            "stats": {
+                "total_candidates": len(all_candidates),
+                "top_score": top_score,
+                "avg_score": avg_score,
+            },
+        }
+
+    def _last_review(self):
+        t = self.dh.latest_t
+        if t < 1:
+            return None
+        actual_reds = sorted([self.dh.data[t][f"红球{j}"] for j in range(1, 7)])
+        actual_blue = self.dh.data[t]["蓝球"]
+        return {
+            "issue": self.dh.issues[t],
+            "actual_reds": actual_reds,
+            "actual_blue": actual_blue,
+        }
+
+    def save(self, report, path=None):
+        path = path or PREDICT_FILE
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(report, f, ensure_ascii=False, indent=2)
+
+    def load_saved(self, path=None):
+        path = path or PREDICT_FILE
+        try:
+            with open(path, encoding="utf-8") as f:
+                return json.load(f)
+        except Exception:
+            return None

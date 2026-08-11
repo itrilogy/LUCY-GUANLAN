@@ -1,0 +1,678 @@
+# ===== FILE: engine/ranker.py =====
+#!/usr/bin/env python3
+"""
+多目标排序 —— anti_crowd / structure / market_fit → final
+
+consistency 仅展示，不进 final。
+"""
+
+from __future__ import annotations
+
+from typing import Iterable, List, Dict, Any
+
+import numpy as np
+
+from config import RANK_WEIGHTS, FORWARD_COST_ALPHA, BACKWARD_MODE, prize_clamp
+
+
+def _minmax(arr: List[float]) -> List[float]:
+    if not arr:
+        return []
+    a = np.asarray(arr, dtype=float)
+    lo, hi = float(a.min()), float(a.max())
+    if hi - lo < 1e-12:
+        return [0.5] * len(arr)
+    return [float(x) for x in (a - lo) / (hi - lo)]
+
+
+class MultiRanker:
+    """对 batch_validate 结果附加多目标分并排序"""
+
+    def __init__(self, dh, mm, nm, behavior, validator, alpha=None):
+        self.dh = dh
+        self.mm = mm
+        self.nm = nm
+        self.behavior = behavior
+        self.validator = validator
+        self.alpha = FORWARD_COST_ALPHA if alpha is None else float(alpha)
+        self.weights = dict(RANK_WEIGHTS)
+
+    def forward_p1c(self, reds, bet_amount=None, t=None) -> dict:
+        bet = float(bet_amount if bet_amount is not None else self.dh.bet[self.dh.latest_t])
+        p1c_m = self.mm.predict_p1c_from_market(bet)
+        g = self.nm.g_cost_p1c(reds, t=t)
+        p1c_hat = max(0.0, p1c_m + self.alpha * g)
+        return {
+            "p1c_hat": p1c_hat,
+            "p1c_market": p1c_m,
+            "g_p1c": g,
+            "alpha": self.alpha,
+        }
+
+    def _market_fit_raw(self, p1c_hat, current_regime, pool, bet) -> float:
+        if BACKWARD_MODE == "conditional":
+            back = self.validator.backward_conditional(
+                p1c_hat, pool=pool, bet=bet, regime=current_regime
+            )
+        else:
+            back = self.validator.backward(prize_clamp(p1c_hat))
+        if not back:
+            return 0.0
+        return float(back["regime_dist"].get(current_regime, 0.0))
+
+    def rank(self, validated: List[dict], bet_amount=None) -> List[dict]:
+        """
+        validated: list of {reds, blue, cost, consistency, ...}
+        returns new list sorted by final desc.
+        """
+        if not validated:
+            return []
+
+        t = self.dh.latest_t
+        regime = self.mm.get_regime(t)
+        pool = float(self.dh.pool[t])
+        bet = float(bet_amount if bet_amount is not None else self.dh.bet[t])
+
+        anti_raw, struct_raw, mfit_raw = [], [], []
+        fwd_list = []
+        for r in validated:
+            reds = r["reds"]
+            anti_raw.append(self.behavior.anti_crowd_raw(reds, t=t))
+            struct_raw.append(self.nm.structure_ll_raw(reds))
+            fwd = self.forward_p1c(reds, bet_amount=bet, t=t)
+            fwd_list.append(fwd)
+            mfit_raw.append(self._market_fit_raw(fwd["p1c_hat"], regime, pool, bet))
+
+        anti = _minmax(anti_raw)
+        struct = _minmax(struct_raw)
+        mfit = _minmax(mfit_raw)
+        w = self.weights
+
+        out = []
+        for i, r in enumerate(validated):
+            final = (
+                w["anti_crowd"] * anti[i]
+                + w["structure"] * struct[i]
+                + w["market_fit"] * mfit[i]
+            )
+            item = dict(r)
+            item["scores"] = {
+                "anti_crowd": round(anti[i], 4),
+                "structure": round(struct[i], 4),
+                "market_fit": round(mfit[i], 4),
+                "final": round(float(final), 4),
+                "consistency": round(float(r.get("consistency", 0)), 4),
+                "crowd_raw": round(-anti_raw[i], 4),
+                "p1c_hat": round(fwd_list[i]["p1c_hat"], 3),
+                "p1c_market": round(fwd_list[i]["p1c_market"], 3),
+            }
+            item["final"] = float(final)
+            out.append(item)
+
+        out.sort(
+            key=lambda x: (
+                -x["final"],
+                -x["scores"]["structure"],
+                x["scores"]["crowd_raw"],
+                tuple(x["reds"]),
+            )
+        )
+        return out
+
+# ===== FILE: engine/behavior.py =====
+#!/usr/bin/env python3
+"""
+BehaviorModel —— 人群拥挤 / 成本代理（B）
+
+crowd_raw 复用 NumberModel 庄家成本分，不另起一套公式。
+"""
+
+from __future__ import annotations
+
+
+class BehaviorModel:
+    """行为/拥挤估计"""
+
+    def __init__(self, dh, nm):
+        self.dh = dh
+        self.nm = nm
+
+    def crowd_raw(self, reds, t=None) -> float:
+        """正 = 更热门/更拥挤（与 _raw_cost_score 一致）"""
+        return float(self.nm._raw_cost_score(reds, t=t))
+
+    def anti_crowd_raw(self, reds, t=None) -> float:
+        return -self.crowd_raw(reds, t=t)
+
+    def popularity(self, top_n=10) -> dict:
+        return self.nm.get_popularity_analysis(top_n=top_n)
+
+# ===== FILE: engine/evolution.py =====
+#!/usr/bin/env python3
+"""
+遗传进化引擎 —— 全量计算，双向验证适应度
+
+从 ssq_evolution_v2.py 移植，对接当前 DataHub/Validator 管线。
+适应度 = Validator.consistency_score() (完整前向→反向→评分)
+每代写入 data/progress.json 供前端轮询。
+"""
+
+import json, os, math, random, time
+import numpy as np
+from config import ROOT
+
+WEIGHTS_FILE = os.path.join(ROOT, "data", "weights.json")
+PROGRESS_FILE = os.path.join(ROOT, "data", "progress.json")
+
+FEAT_NAMES = ["遗漏值","近10期频","近20期频","近50期频",
+              "遗漏趋势","奖池相关","继承率","相对遗漏"]
+
+
+class PatternGene:
+    """基因: 8维红球权重 + 4维蓝球权重 + 继承/跨度偏置"""
+
+    def __init__(self):
+        self.w_red = np.random.randn(8) * 0.3
+        self.w_blue = np.random.randn(4) * 0.3
+        self.inherit_bias = random.uniform(-0.5, 0.5)
+        self.span_bias = random.uniform(-2, 2)
+        self.fitness = None
+        self.detail = {}
+
+    def clone(self):
+        g = PatternGene()
+        g.w_red = self.w_red.copy()
+        g.w_blue = self.w_blue.copy()
+        g.inherit_bias = self.inherit_bias
+        g.span_bias = self.span_bias
+        return g
+
+    def mutate(self, rate=0.3):
+        for i in range(8):
+            if random.random() < rate:
+                self.w_red[i] += random.gauss(0, 0.15)
+        for i in range(4):
+            if random.random() < rate:
+                self.w_blue[i] += random.gauss(0, 0.15)
+        if random.random() < rate:
+            self.inherit_bias += random.gauss(0, 0.2)
+        if random.random() < rate:
+            self.span_bias += random.gauss(0, 1)
+        self.fitness = None
+        return self
+
+    def crossover(self, other):
+        child = self.clone()
+        for i in range(8):
+            if random.random() < 0.5:
+                child.w_red[i] = other.w_red[i]
+        for i in range(4):
+            if random.random() < 0.5:
+                child.w_blue[i] = other.w_blue[i]
+        if random.random() < 0.5:
+            child.inherit_bias = other.inherit_bias
+        if random.random() < 0.5:
+            child.span_bias = other.span_bias
+        child.fitness = None
+        return child
+
+    def predict(self, dh, t):
+        """用基因预测t+1期的号码"""
+        rf = dh.get_red_features(t)
+        bf = dh.get_blue_features(t)
+        scores = rf @ self.w_red
+        if t > 0:
+            for j in range(1, 7):
+                scores[dh.data[t][f"红球{j}"]-1] += self.inherit_bias
+        reds = sorted((np.argsort(scores)[-6:][::-1] + 1).tolist())
+        b_scores = bf @ self.w_blue
+        blue = int(np.argmax(b_scores) + 1)
+        return reds, blue
+
+    def to_dict(self):
+        return {
+            'w_red': [float(x) for x in self.w_red],
+            'w_blue': [float(x) for x in self.w_blue],
+            'inherit_bias': float(self.inherit_bias),
+            'span_bias': float(self.span_bias),
+            'fitness': float(self.fitness) if self.fitness else None,
+        }
+
+    @staticmethod
+    def from_dict(d):
+        g = PatternGene()
+        g.w_red = np.array(d['w_red'])
+        g.w_blue = np.array(d['w_blue'])
+        g.inherit_bias = d['inherit_bias']
+        g.span_bias = d['span_bias']
+        g.fitness = d.get('fitness')
+        return g
+
+
+class Evolution:
+    """遗传进化引擎，完整双向验证适应度"""
+
+    def __init__(self, dh, validator, nm,
+                 pop_size=200, generations=30, test_ratio=0.2):
+        self.dh = dh
+        self.validator = validator
+        self.nm = nm
+        self.pop_size = pop_size
+        self.generations = generations
+        self.test_ratio = test_ratio
+        self.N = dh.N
+        self.test_start = int(self.N * (1 - test_ratio))
+        self.pop = []
+        self.gen_log = []
+        # 预计算 backward 查找表（全量等价，结果一致，仅速度优化）
+        self._build_lut()
+
+    def _build_lut(self, max_prize=200):
+        """预计算 backward 结果缓存，与扫全量完全等价"""
+        self.backward_lut = {}
+        for prize in range(max_prize + 1):
+            res = self.validator.backward(prize, top_k=30)
+            self.backward_lut[prize] = res
+
+    def _write_progress(self, stage, progress, message):
+        """写入进度供前端轮询"""
+        try:
+            with open(PROGRESS_FILE, 'w') as f:
+                json.dump({
+                    'running': True,
+                    'stage': stage,
+                    'progress': progress,
+                    'message': message,
+                }, f)
+        except Exception:
+            pass
+
+    def _clear_progress(self):
+        try:
+            with open(PROGRESS_FILE, 'w') as f:
+                json.dump({'running': False, 'stage': 'idle', 'progress': 0, 'message': '就绪'}, f)
+        except Exception:
+            pass
+
+    def evaluate(self, gene):
+        """
+        适应度 = 在测试集上运行完整双向验证的平均一致性评分（查LUT版）。
+
+        与标准 consistency_score 逻辑完全一致，仅 backward 步骤用 LUT 加速。
+        """
+        total_score = 0.0
+        n = 0
+
+        for t in range(self.test_start, self.N - 1):
+            reds, blue = gene.predict(self.dh, t)
+            # forward: 成本→头奖
+            bet_amount = self.dh.bet[t]
+            est_prize = self.nm.estimate_prize1(reds, bet_amount)
+            est_prize = int(round(max(0, min(200, est_prize))))
+
+            # backward: LUT查询（与扫全量等价）
+            back_result = self.backward_lut.get(est_prize, None)
+            if back_result is None:
+                continue
+
+            # consistency_score: 当前Regime在反向分布中的概率
+            current_regime = int(self.validator.mm._regime_labels[t])
+            regime_prob = back_result['regime_dist'].get(current_regime, 0)
+            entropy = -sum(p * math.log(p + 1e-10) for p in back_result['regime_dist'].values())
+            max_entropy = math.log(max(1, len(back_result['regime_dist'])))
+            concentration = 1 - entropy / max_entropy if max_entropy > 0 else 1
+            score = regime_prob * 0.7 + concentration * 0.3
+
+            total_score += score
+            n += 1
+
+        gene.fitness = total_score / n if n > 0 else 0
+        gene.detail = {'avg_consistency': gene.fitness, 'n': n}
+        return gene.fitness
+
+    def init_pop(self):
+        self.pop = [PatternGene() for _ in range(self.pop_size)]
+
+    def run(self):
+        """执行完整进化，返回最佳基因"""
+        self._write_progress('init', 0, f'初始化种群 {self.pop_size}...')
+        self.init_pop()
+
+        # 基准测试
+        sample = random.sample(self.pop, min(20, self.pop_size))
+        base_fits = []
+        for g in sample:
+            self.evaluate(g)
+            base_fits.append(g.fitness)
+        avg_base = float(np.mean(base_fits)) if base_fits else 0
+        best_base = float(max(base_fits)) if base_fits else 0
+
+        progress_per_gen = 85.0 / max(1, self.generations)  # 预留15%给最终验证
+
+        for gen in range(self.generations):
+            # 评估
+            for g in self.pop:
+                if g.fitness is None:
+                    self.evaluate(g)
+
+            self.pop.sort(key=lambda g: g.fitness, reverse=True)
+            best = self.pop[0]
+            median = self.pop[len(self.pop)//2]
+            self.gen_log.append({
+                'gen': gen, 'best': float(best.fitness),
+                'median': float(median.fitness),
+                'top5_avg': float(np.mean([g.fitness for g in self.pop[:5]])),
+            })
+
+            pct = int(progress_per_gen * (gen + 1))
+            msg = f"进化第 {gen+1}/{self.generations} 代 | 最佳一致={best.fitness:.4f} | 中位={median.fitness:.4f}"
+            self._write_progress('evolution', pct, msg)
+
+            # 繁殖下一代
+            if gen < self.generations - 1:
+                next_gen = self.pop[:15].copy()
+                while len(next_gen) < self.pop_size:
+                    p1 = random.choice(self.pop[:20])
+                    if random.random() < 0.7:
+                        p2 = random.choice(self.pop[:20])
+                        child = p1.crossover(p2)
+                    else:
+                        child = p1.clone()
+                    child.mutate()
+                    next_gen.append(child)
+                self.pop = next_gen
+
+        # 最终排序
+        self.pop.sort(key=lambda g: g.fitness, reverse=True)
+        best_gene = self.pop[0]
+
+        self._write_progress('final_validate', 92, '最终验证最佳基因...')
+        # 最终用最佳基因跑完整验证（含2000候选）
+        # 但已经在上一步完成了
+
+        self._clear_progress()
+        return best_gene, {
+            'avg_base': avg_base,
+            'best_base': best_base,
+            'best_fitness': float(best_gene.fitness),
+            'generations_run': self.generations,
+            'gen_log': self.gen_log,
+        }
+
+
+def load_weights():
+    """加载已缓存的权重"""
+    try:
+        with open(WEIGHTS_FILE) as f:
+            d = json.load(f)
+        return PatternGene.from_dict(d)
+    except Exception:
+        return None
+
+
+def save_weights(gene):
+    """保存最佳权重"""
+    with open(WEIGHTS_FILE, 'w') as f:
+        json.dump(gene.to_dict(), f, indent=2)
+
+
+def run_evolution(dh, validator, nm, pop_size=200, generations=30, test_ratio=0.2):
+    """便捷入口: 创建并运行进化"""
+    evo = Evolution(dh, validator, nm, pop_size, generations, test_ratio)
+    return evo.run()
+
+# ===== FILE: engine/eval/walk_forward.py =====
+#!/usr/bin/env python3
+"""
+Walk-forward 评估（wf_freeze_soft_v1 简化 smoke）
+
+协议要点：
+- 在 min_train 之后逐期：用 t 的市场状态评估 t 期结构/成本信号
+- 记录 hit_red top1、p1c_market MAE、crowd 分位
+"""
+
+from __future__ import annotations
+
+import json
+import os
+from datetime import datetime
+
+import numpy as np
+
+
+def random_hit_expectation():
+    return 6 * 6 / 33.0  # ≈1.0909
+
+
+def run_walk_forward_smoke(dh, mm, nm, n_test=50, seed=42, min_train=None):
+    """
+    轻量 smoke：不重训 GMM，使用全量已 fit 的 mm 标签（与生产 soft 近似）。
+    返回 KPI dict。
+    """
+    rng = np.random.default_rng(seed)
+    N = dh.N
+    if min_train is None:
+        min_train = max(200, N - n_test - 1)
+    start = max(min_train, N - n_test - 1)
+    hits = []
+    p1c_err = []
+    bet_err = []
+    crowd_pct = []
+
+    for t in range(start, N - 1):
+        # 市场 p1c 预测误差（用 t 的 bet 预测 t 的 p1c）
+        hat = mm.predict_p1c_from_market(dh.bet[t])
+        p1c_err.append(abs(hat - dh.p1c[t]))
+        # bet 方向：用 pool_{t-1} 预测 bet_t
+        if t > 0:
+            bet_hat = mm.predict_bet(dh.pool[t - 1])
+            bet_err.append(abs(bet_hat - dh.bet[t]) / max(1.0, dh.bet[t]))
+
+        # 随机基线对照：抽一组号码 vs 实际
+        pool_state = mm.get_pool_state(t)
+        cands = nm.sample_candidates(30, pool_state)
+        # 用结构 LL 取 top1（非 consistency 重计算，smoke）
+        scored = [(nm.structure_ll_raw(r[0]), r[0]) for r in cands]
+        scored.sort(key=lambda x: -x[0])
+        top_reds = scored[0][1]
+        actual = set(dh.data[t + 1][f"红球{j}"] for j in range(1, 7))
+        hits.append(len(set(top_reds) & actual))
+
+        # 实际组合的 crowd 分位（越高越拥挤）
+        actual_reds = sorted(actual)
+        costs = [nm._raw_cost_score(r[0], t=t) for r in cands]
+        ac = nm._raw_cost_score(actual_reds, t=t)
+        if costs:
+            crowd_pct.append(float(np.mean(np.array(costs) <= ac)))
+
+    hits = np.array(hits, dtype=float)
+    kpi = {
+        "protocol": "wf_freeze_soft_v1_smoke",
+        "seed": seed,
+        "n_eval": int(len(hits)),
+        "start_t": int(start),
+        "avg_hit_red_top1": float(hits.mean()) if len(hits) else 0.0,
+        "random_hit_expectation": random_hit_expectation(),
+        "hit_vs_random": float(hits.mean() / random_hit_expectation()) if len(hits) else 0.0,
+        "p1c_mae": float(np.mean(p1c_err)) if p1c_err else None,
+        "bet_mape": float(np.mean(bet_err)) if bet_err else None,
+        "actual_crowd_percentile_mean": float(np.mean(crowd_pct)) if crowd_pct else None,
+        "created_at": datetime.now().isoformat(timespec="seconds"),
+    }
+    return kpi
+
+
+def save_kpi(kpi: dict, path: str):
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(kpi, f, ensure_ascii=False, indent=2)
+    return path
+
+# ===== FILE: scripts/cli.py =====
+#!/usr/bin/env python3
+"""
+统一 CLI（脚本路径，非 package）
+
+用法（在 ssq_predictor/ 下）:
+  python3 scripts/cli.py update
+  python3 scripts/cli.py update --data-only
+  python3 scripts/cli.py predict
+  python3 scripts/cli.py check
+  python3 scripts/cli.py serve
+  python3 scripts/cli.py test
+
+注意: CLI 数据变更后始终 full 重建模型（不 soft）。
+"""
+from __future__ import annotations
+
+import argparse
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+
+
+def cmd_update(args):
+    from engine.data_hub import DataHub
+    from engine.market import MarketModel
+    from engine.numbers import NumberModel
+    from engine.validator import Validator
+    from engine.predictor import Predictor
+
+    print("CLI update...")
+    dh = DataHub().load()
+    print(f"本地: {dh.N} 期, 最新 {dh.latest_issue} ({dh.dates[-1]})")
+
+    if not args.predict_only:
+        stats = dh.update_from_remote(progress_callback=lambda m: print(f"  {m}"))
+        if not stats.get("success"):
+            print(f"爬取失败: {stats.get('error')}")
+            if args.data_only:
+                return 1
+        else:
+            print(
+                f"合并 +{stats.get('added', 0)} / 更新 {stats.get('updated', 0)} "
+                f"→ {stats.get('after_issue')} ({stats.get('after_n')} 期)"
+            )
+
+    if args.data_only:
+        print("完成 (--data-only); CLI 未重建模型")
+        return 0
+
+    # 始终 full reinit
+    dh = DataHub().reload()
+    mm = MarketModel(dh)
+    nm = NumberModel(dh)
+    v = Validator(dh, mm, nm)
+    p = Predictor(dh, mm, nm, v)
+    report = p.run(n_candidates=args.candidates)
+    p.save(report)
+    print(f"预测完成: 目标 {report.get('current_issue')} 耗时 {report.get('elapsed')}s")
+    return 0
+
+
+def cmd_predict(args):
+    args.predict_only = True
+    args.data_only = False
+    return cmd_update(args)
+
+
+def cmd_check(args):
+    from scripts.init_data import main as init_main
+    # init_data.main 直接 print 并可能 exit
+    try:
+        init_main()
+    except SystemExit as e:
+        if e.code not in (0, None):
+            return int(e.code or 1)
+    # smoke: load + backward + sample
+    from engine.data_hub import DataHub
+    from engine.market import MarketModel
+    from engine.numbers import NumberModel
+    from engine.validator import Validator
+
+    DataHub._instance = None
+    dh = DataHub().load()
+    mm = MarketModel(dh)
+    nm = NumberModel(dh)
+    v = Validator(dh, mm, nm)
+    v.ensure_backward_lut()
+    assert v._backward_lut is not None
+    cands = nm.sample_candidates(20, "平衡")
+    out = v.batch_validate(cands)
+    print(f"smoke OK: N={dh.N} sample={len(cands)} validated={len(out)}")
+    return 0
+
+
+def cmd_serve(args):
+    os.chdir(ROOT)
+    # import app triggers scheduler
+    from config import HOST, PORT
+    import app as appmod
+    print(f"启动 http://{HOST}:{PORT}")
+    appmod.app.run(host=HOST, port=PORT, debug=False)
+    return 0
+
+
+def cmd_test(args):
+    import subprocess
+    r = subprocess.call([sys.executable, "-m", "pytest", "-q"], cwd=ROOT)
+    return r
+
+
+def cmd_eval(args):
+    import json
+    import os
+    from engine.data_hub import DataHub
+    from engine.market import MarketModel
+    from engine.numbers import NumberModel
+    from engine.eval import run_walk_forward_smoke, save_kpi
+    from config import DATA_DIR
+
+    dh = DataHub().load()
+    mm = MarketModel(dh)
+    nm = NumberModel(dh)
+    kpi = run_walk_forward_smoke(dh, mm, nm, n_test=args.n_test, seed=args.seed)
+    out = args.out or os.path.join(DATA_DIR, "eval", "wf_smoke_latest.json")
+    save_kpi(kpi, out)
+    print(json.dumps(kpi, ensure_ascii=False, indent=2))
+    print(f"saved → {out}")
+    return 0
+
+
+def main():
+    parser = argparse.ArgumentParser(description="ssq_predictor CLI")
+    sub = parser.add_subparsers(dest="cmd", required=True)
+
+    p_up = sub.add_parser("update", help="爬取+full重建+预测")
+    p_up.add_argument("--data-only", action="store_true")
+    p_up.add_argument("--predict-only", action="store_true")
+    p_up.add_argument("--candidates", type=int, default=2000)
+    p_up.set_defaults(func=cmd_update)
+
+    p_pr = sub.add_parser("predict", help="仅预测（full 重建）")
+    p_pr.add_argument("--candidates", type=int, default=2000)
+    p_pr.set_defaults(func=cmd_predict, data_only=False, predict_only=True)
+
+    p_ck = sub.add_parser("check", help="数据校验 + 引擎冒烟")
+    p_ck.set_defaults(func=cmd_check)
+
+    p_sv = sub.add_parser("serve", help="启动 Flask")
+    p_sv.set_defaults(func=cmd_serve)
+
+    p_ts = sub.add_parser("test", help="pytest")
+    p_ts.set_defaults(func=cmd_test)
+
+    p_ev = sub.add_parser("eval", help="walk-forward smoke KPI")
+    p_ev.add_argument("--n-test", type=int, default=40)
+    p_ev.add_argument("--seed", type=int, default=42)
+    p_ev.add_argument("--out", type=str, default=None)
+    p_ev.set_defaults(func=cmd_eval)
+
+    args = parser.parse_args()
+    raise SystemExit(args.func(args) or 0)
+
+
+if __name__ == "__main__":
+    main()

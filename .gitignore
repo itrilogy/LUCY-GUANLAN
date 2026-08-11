@@ -2,8 +2,11 @@ __pycache__/
 *.pyc
 .DS_Store
 venv/
+.venv/
 .env
+.pytest_cache/
 data/ssq.db
+data/progress.json
 *.egg-info/
 dist/
 build/

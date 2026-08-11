@@ -1,0 +1,13 @@
+{
+  "protocol": "wf_freeze_soft_v1_smoke",
+  "seed": 42,
+  "n_eval": 30,
+  "start_t": 3457,
+  "avg_hit_red_top1": 1.2,
+  "random_hit_expectation": 1.0909090909090908,
+  "hit_vs_random": 1.1,
+  "p1c_mae": 5.390650226817442,
+  "bet_mape": 0.27386709319954355,
+  "actual_crowd_percentile_mean": 0.41444444444444445,
+  "created_at": "2026-08-11T16:27:30"
+}

@@ -15,6 +15,10 @@ from sklearn.linear_model import LinearRegression
 from config import N_RED, BIRTHDAY_EFFECT, N_CANDIDATES
 
 
+# 近窗期数（成本模型 recent 项）
+RECENT_WINDOW = 20
+
+
 class NumberModel:
     """号码特征分析 + 成本评分 + 候选生成"""
     
@@ -22,6 +26,7 @@ class NumberModel:
         self.dh = dh
         self.N = dh.N
         self._build_unconditional()
+        self._build_freq_tables()
         self._build_cost_model()
     
     # ── 无条件分布 ──────────────────────────────────────────
@@ -69,16 +74,43 @@ class NumberModel:
         
         return dist
     
+    # ── 频率表（成本分 recent 项 O(1) 查询）──────────────────
+
+    def _build_freq_tables(self):
+        """
+        预计算每期「近 RECENT_WINDOW 期」各红球出现次数。
+        red_recent[t, num-1] = 在 [t-W+1, t]（含）窗口内号码 num 出现次数。
+        """
+        N = self.N
+        hits = np.zeros((N, N_RED), dtype=np.int16)
+        for t in range(N):
+            for j in range(1, 7):
+                hits[t, self.dh.data[t][f"红球{j}"] - 1] = 1
+        # 前缀和: csum[k] = hits[0]+...+hits[k-1]
+        csum = np.zeros((N + 1, N_RED), dtype=np.int32)
+        np.cumsum(hits, axis=0, out=csum[1:])
+        self._hit_csum = csum
+        self._recent_window = RECENT_WINDOW
+        # 缓存最新期向量，采样热路径零拷贝
+        self._latest_recent = self.recent_freq_vector(self.dh.latest_t)
+
+    def recent_freq_vector(self, t, window=None):
+        """返回 shape (33,) 的近窗出现次数，t 期 inclusive。"""
+        w = window if window is not None else self._recent_window
+        t = int(max(0, min(t, self.N - 1)))
+        lo = max(0, t + 1 - w)
+        return self._hit_csum[t + 1] - self._hit_csum[lo]
+    
     # ── 成本评分模型 ────────────────────────────────────────
     
     def _build_cost_model(self):
-        """从历史数据拟合成本评分系数"""
+        """从历史数据拟合成本评分系数（使用各期自身的近窗频率）"""
         all_costs = []
         all_p1c = []
         
         for t in range(self.N):
-            reds = sorted([self.dh.data[t][f"红球{j}"] for j in range(1,7)])
-            cost = self._raw_cost_score(reds)
+            reds = sorted([self.dh.data[t][f"红球{j}"] for j in range(1, 7)])
+            cost = self._raw_cost_score(reds, t=t)
             all_costs.append(cost)
             all_p1c.append(self.dh.p1c[t])
         
@@ -89,35 +121,86 @@ class NumberModel:
         reg = LinearRegression()
         reg.fit(self._all_costs.reshape(-1, 1), np.log10(self._all_p1c + 1))
         self._cost_to_prize = reg
-    
-    def _raw_cost_score(self, reds):
+        # p1c 空间均值（g 残差用）
+        base_p1c = []
+        for t in range(self.N):
+            reds = sorted([self.dh.data[t][f"红球{j}"] for j in range(1, 7)])
+            base_p1c.append(self.cost_to_p1c_base(reds, t=t))
+        self._train_mean_cost_to_p1c = float(np.mean(base_p1c)) if base_p1c else 0.0
+
+    def profile_from_reds(self, reds):
+        """与 DataHub profiles 同字段的结构画像"""
+        reds = sorted(reds)
+        prime_set = {2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31}
+        return {
+            "span": reds[-1] - reds[0],
+            "sum": sum(reds),
+            "odd": sum(1 for x in reds if x % 2 == 1),
+            "cons": sum(1 for j in range(5) if reds[j + 1] - reds[j] == 1),
+            "z1": sum(1 for x in reds if 1 <= x <= 11),
+            "z2": sum(1 for x in reds if 12 <= x <= 22),
+            "z3": sum(1 for x in reds if 23 <= x <= 33),
+            "bday": sum(1 for x in reds if 1 <= x <= 31),
+            "non_bday": sum(1 for x in reds if 32 <= x <= 33),
+            "prime": sum(1 for x in reds if x in prime_set),
+            "same_tail": len(set(x % 10 for x in reds)),
+        }
+
+    def structure_ll_raw(self, reds) -> float:
+        """对角高斯 LL（省略 log(sd) 常数项）"""
+        prof = self.profile_from_reds(reds)
+        ll = 0.0
+        for i, name in enumerate(self.feat_names):
+            mu = float(self.feat_mean[i])
+            sd = max(float(self.feat_std[i]), 1e-6)
+            z = (float(prof[name]) - mu) / sd
+            z = max(-6.0, min(6.0, z))
+            ll += -0.5 * z * z
+        return float(ll)
+
+    def cost_to_p1c_base(self, reds, t=None) -> float:
+        """成本→p1c（无投注缩放），p1c 量纲"""
+        cost = self._raw_cost_score(reds, t=t)
+        log_p = self._cost_to_prize.predict([[cost]])[0]
+        return float(10 ** log_p - 1)
+
+    def g_cost_p1c(self, reds, t=None) -> float:
+        """p1c 空间残差 g = cost_to_p1c - train_mean"""
+        mean = getattr(self, "_train_mean_cost_to_p1c", 0.0)
+        return self.cost_to_p1c_base(reds, t=t) - mean
+
+    def _raw_cost_score(self, reds, t=None, freq_vec=None):
         """
         原始成本分: 正=热门(多人买), 负=冷门(少人买)
+
+        t: 评估期（默认最新期）；freq_vec: 可选预计算近窗频率 (33,)
         """
+        reds = list(reds)
         span = max(reds) - min(reds)
         bday_cnt = sum(1 for x in reds if 1 <= x <= 31)
-        cons = sum(1 for j in range(5) if reds[j+1] - reds[j] == 1)
+        cons = sum(1 for j in range(5) if reds[j + 1] - reds[j] == 1)
         big = sum(1 for x in reds if x >= 32)
+
+        if freq_vec is None:
+            if t is None:
+                t = self.dh.latest_t
+                freq_vec = self._latest_recent
+            else:
+                freq_vec = self.recent_freq_vector(t)
+        w = float(self._recent_window)
+        recent = sum(float(freq_vec[num - 1]) for num in reds) / w
         
-        # 近20期频率
-        t = self.dh.latest_t
-        recent = 0
-        for num in reds:
-            freq = sum(1 for s in range(max(0,t-20), t+1) 
-                      if any(self.dh.data[s][f"红球{k}"]==num for k in range(1,7)))
-            recent += freq / 20
-        
-        cost = (bday_cnt * 0.3 + (7 - span/5) * 0.15 + 
+        cost = (bday_cnt * 0.3 + (7 - span / 5) * 0.15 +
                 cons * 0.2 + recent * 0.2 - big * 0.3)
         return cost
     
-    def cost_score(self, reds):
+    def cost_score(self, reds, t=None):
         """公开接口: 返回归一化的成本分"""
-        return float(self._raw_cost_score(reds))
+        return float(self._raw_cost_score(reds, t=t))
     
-    def estimate_prize1(self, reds, bet_amount):
+    def estimate_prize1(self, reds, bet_amount, t=None):
         """估算如果开出这组号码的头奖注数"""
-        cost = self._raw_cost_score(reds)
+        cost = self._raw_cost_score(reds, t=t)
         log_p1c = self._cost_to_prize.predict([[cost]])[0]
         p1c = 10 ** log_p1c - 1
         
@@ -134,6 +217,8 @@ class NumberModel:
         dist = self.get_conditional_dist(pool_state)
         candidates = []
         seen = set()
+        # 热路径：固定用最新期频率向量，避免每候选重算窗口
+        freq_vec = self._latest_recent
         
         attempts = 0
         while len(candidates) < n and attempts < n * 20:
@@ -150,7 +235,7 @@ class NumberModel:
             seen.add(key)
             
             blue = random.randint(1, 16)
-            cost = self._raw_cost_score(reds)
+            cost = self._raw_cost_score(reds, freq_vec=freq_vec)
             candidates.append((reds, blue, cost))
         
         return candidates

@@ -134,14 +134,14 @@ class Evolution:
                     'progress': progress,
                     'message': message,
                 }, f)
-        except:
+        except Exception:
             pass
 
     def _clear_progress(self):
         try:
             with open(PROGRESS_FILE, 'w') as f:
                 json.dump({'running': False, 'stage': 'idle', 'progress': 0, 'message': '就绪'}, f)
-        except:
+        except Exception:
             pass
 
     def evaluate(self, gene):
@@ -256,7 +256,7 @@ def load_weights():
         with open(WEIGHTS_FILE) as f:
             d = json.load(f)
         return PatternGene.from_dict(d)
-    except:
+    except Exception:
         return None
 
 

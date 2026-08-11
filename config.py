@@ -41,6 +41,14 @@ TOP_N = 10
 VALIDATOR_HISTORY_WINDOW = 200
 CONSISTENCY_CURRENT_WEIGHT = 0.7
 CONSISTENCY_ENTROPY_WEIGHT = 0.3
+BACKWARD_LUT_MAX_PRIZE = 200   # prize LUT 上界（与 evolution 夹紧一致）
+BACKWARD_TOP_K = 20            # batch_validate 默认近邻数
+EVOLVE_BACKWARD_TOP_K = 30     # evolution 历史 top_k（暂不统一）
+
+def prize_clamp(est_prize, max_prize=None):
+    """夹紧到 [0, max_prize]，与 evolution 路径 int(round(...)) 一致"""
+    mp = BACKWARD_LUT_MAX_PRIZE if max_prize is None else max_prize
+    return int(round(max(0, min(mp, est_prize))))
 
 # ── 反馈回路系数 (来自历史回归, 固化) ──
 FEEDBACK_POOL_TO_BET_R = 0.678
@@ -51,10 +59,32 @@ FEEDBACK_PRIZE_TO_POOL_R = -0.341
 EVOLVE_POP_SIZE = 200           # 种群
 EVOLVE_GENERATIONS = 30         # 代数
 EVOLVE_TEST_RATIO = 0.2         # 训练期占比 (后20%=696期)
-EVOLVE_LUT_MAX_PRIZE = 200      # 预计算backward LUT范围
+EVOLVE_LUT_MAX_PRIZE = BACKWARD_LUT_MAX_PRIZE  # 与 backward LUT 对齐
 EVOLVE_TOP_ELITES = 15          # 每代保留精英数
 EVOLVE_MUTATE_RATE = 0.3        # 变异率
 EVOLVE_CROSSOVER_RATE = 0.7     # 杂交率
+
+# ── 评分模式（Phase 2 默认仍 legacy）──
+SCORING_MODE = os.environ.get("SSQ_SCORING_MODE", "legacy")  # legacy | multi | dual
+SCORING_EXPERIMENTAL_GATE = True  # multi/dual 需 env SSQ_ALLOW_EXPERIMENTAL_SCORING=1
+EVOLUTION_MODE = os.environ.get("SSQ_EVOLUTION_MODE", "legacy_consistency")
+FORWARD_COST_ALPHA = float(os.environ.get("SSQ_FORWARD_COST_ALPHA", "0.05"))
+RANK_WEIGHTS = {
+    "anti_crowd": 0.40,
+    "structure": 0.40,
+    "market_fit": 0.20,
+}
+BACKWARD_MODE = os.environ.get("SSQ_BACKWARD_MODE", "prize")  # prize | conditional
+BACKWARD_DIST_WEIGHTS = {
+    "w_p": 1.0,
+    "w_pool": 0.5,
+    "w_bet": 0.5,
+    "w_r": 0.25,
+}
+
+# ── 引擎重训 ──
+FULL_REFIT_DAYS = 7            # 进程内 soft 后超过 N 天强制 full
+ENGINE_STATE_FILE = os.path.join(DATA_DIR, "engine_state.json")
 
 # ── Web 服务 ──
 HOST = "0.0.0.0"
@@ -62,5 +92,12 @@ PORT = 8080
 DEBUG = False
 
 # ── 更新调度 ──
-UPDATE_HOUR = 0
+# 双色球开奖: 周二/周四/周日 约 21:15，开奖后拉取
+# weekday: Mon=0 ... Sun=6 → 开奖日 = 1(Tue), 3(Thu), 6(Sun)
+DRAW_WEEKDAYS = [1, 3, 6]
+UPDATE_HOUR = 22
 UPDATE_MINUTE = 0
+# 启动时是否自动爬取: "auto"=按数据新鲜度判断, True=总是, False=从不
+STARTUP_FETCH = "auto"
+# 距本地最新开奖超过该天数则视为可能缺期（最大间隔约 3 天）
+STALE_DAYS = 2

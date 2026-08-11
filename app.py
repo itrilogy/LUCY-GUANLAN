@@ -2,11 +2,11 @@
 """
 双色球预测分析工具 —— Web 服务入口
 
-Flask + APScheduler 每日 00:00 自动更新
+Flask + APScheduler：开奖日 22:00 自动爬取并预测
 """
 
-import json, os, sys
-from datetime import datetime
+import json, os, sys, threading
+from datetime import datetime, date, timedelta
 
 # 确保项目根目录在Python路径中
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -14,7 +14,11 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from flask import Flask, jsonify, render_template, request
 from apscheduler.schedulers.background import BackgroundScheduler
 
-from config import HOST, PORT, DEBUG, PREDICT_FILE, UPDATE_HOUR, UPDATE_MINUTE
+from config import (
+    HOST, PORT, DEBUG, PREDICT_FILE,
+    UPDATE_HOUR, UPDATE_MINUTE, DRAW_WEEKDAYS, STARTUP_FETCH, STALE_DAYS,
+    FULL_REFIT_DAYS, ENGINE_STATE_FILE,
+)
 from engine.data_hub import DataHub
 from engine.market import MarketModel
 from engine.numbers import NumberModel
@@ -33,15 +37,109 @@ class NumpyEncoder(json.JSONEncoder):
         return super().default(o)
 
 
+# ── 引擎状态（须在 init_engine 之前定义）──────────────────
+
+def _load_engine_state():
+    try:
+        with open(ENGINE_STATE_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _save_engine_state(**kwargs):
+    st = _load_engine_state()
+    st.update(kwargs)
+    st["updated_at"] = datetime.now().isoformat(timespec="seconds")
+    try:
+        with open(ENGINE_STATE_FILE, "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=2)
+    except Exception as e:
+        print(f"[{datetime.now()}] engine_state 写入失败: {e}")
+
+
+def _need_full_refit():
+    """超过 FULL_REFIT_DAYS 或无 last_full_refit → full"""
+    st = _load_engine_state()
+    last = st.get("last_full_refit")
+    if not last:
+        return True
+    try:
+        t0 = datetime.fromisoformat(last)
+        return (datetime.now() - t0).days >= FULL_REFIT_DAYS
+    except Exception:
+        return True
+
+
 # ── 初始化引擎 ──────────────────────────────────────────────
 
 def init_engine():
-    """初始化所有引擎模块"""
+    """初始化所有引擎模块（启动 full fit，记录 engine_state）"""
     dh = DataHub().load()
     mm = MarketModel(dh)
     nm = NumberModel(dh)
     v = Validator(dh, mm, nm)
     p = Predictor(dh, mm, nm, v)
+    try:
+        _save_engine_state(
+            last_full_refit=datetime.now().isoformat(timespec="seconds"),
+            latest_issue=dh.latest_issue,
+            N=dh.N,
+            mode="full",
+            boot=True,
+        )
+    except Exception:
+        pass
+    return dh, mm, nm, v, p
+
+
+def reinit_engine(mode="auto"):
+    """
+    数据变更后重建模型。
+    mode:
+      - full: 全量 GMM/KMeans + NumberModel
+      - soft: 进程内扩展标签（需已有 mm）；失败则 full
+      - auto: 距上次 full 超过 FULL_REFIT_DAYS → full，否则 soft
+    CLI 应始终 full；本函数给 app 长驻进程使用。
+    """
+    global dh, mm, nm, v, p
+    if mode == "auto":
+        mode = "full" if _need_full_refit() else "soft"
+
+    n_before = getattr(mm, "N", 0) if mm is not None else 0
+    dh = DataHub().reload()
+
+    used = mode
+    if mode == "soft" and mm is not None and n_before > 0:
+        ok = mm.soft_extend(dh)
+        if ok:
+            nm = NumberModel(dh)  # 频率表/成本序列重建（O(N) 可接受）
+            if v is not None:
+                v.invalidate_backward_lut()
+            v = Validator(dh, mm, nm)
+            p = Predictor(dh, mm, nm, v)
+            _save_engine_state(
+                last_soft_extend=datetime.now().isoformat(timespec="seconds"),
+                latest_issue=dh.latest_issue,
+                N=dh.N,
+                mode="soft",
+            )
+            print(f"[{datetime.now()}] soft reinit OK → {dh.latest_issue} N={dh.N}")
+            return dh, mm, nm, v, p
+        used = "full"
+        print(f"[{datetime.now()}] soft reinit 失败，回退 full")
+
+    mm = MarketModel(dh)
+    nm = NumberModel(dh)
+    v = Validator(dh, mm, nm)
+    p = Predictor(dh, mm, nm, v)
+    _save_engine_state(
+        last_full_refit=datetime.now().isoformat(timespec="seconds"),
+        latest_issue=dh.latest_issue,
+        N=dh.N,
+        mode="full",
+    )
+    print(f"[{datetime.now()}] full reinit OK → {dh.latest_issue} N={dh.N} ({used})")
     return dh, mm, nm, v, p
 
 
@@ -49,39 +147,155 @@ def init_engine():
 
 dh, mm, nm, v, p = init_engine()
 last_run = None
+last_data_update = None
+_update_lock = threading.Lock()
 
 
-def run_update():
-    """执行预测更新"""
-    global last_run
-    print(f"[{datetime.now()}] 开始预测更新...")
+def _latest_draw_date(hub=None):
+    hub = hub or dh
     try:
+        return datetime.strptime(hub.dates[-1], "%Y-%m-%d").date()
+    except Exception:
+        return None
+
+
+def should_fetch_now(hub=None, now=None):
+    """
+    判断是否需要从远端拉数据。
+
+    - 本地最新开奖距今 >= STALE_DAYS
+    - 或今天是开奖日、已过 UPDATE_HOUR，且本地还没有今天的开奖
+    """
+    hub = hub or dh
+    now = now or datetime.now()
+    latest = _latest_draw_date(hub)
+    if latest is None:
+        return True
+    today = now.date()
+    gap = (today - latest).days
+    if gap >= STALE_DAYS:
+        return True
+    if (
+        today.weekday() in DRAW_WEEKDAYS
+        and now.hour >= UPDATE_HOUR
+        and latest < today
+    ):
+        return True
+    return False
+
+
+def run_update(fetch_data=True):
+    """
+    执行完整更新: 爬取最新开奖 → 重建引擎 → 重跑预测。
+    fetch_data=False 时仅重跑预测（不访问外网）。
+    """
+    global last_run, last_data_update
+    if not _update_lock.acquire(blocking=False):
+        print(f"[{datetime.now()}] 更新已在进行，跳过")
+        return {"success": False, "error": "update_in_progress"}
+    try:
+        print(f"[{datetime.now()}] 开始更新...")
+        data_stats = None
+        if fetch_data:
+            print(f"[{datetime.now()}] 爬取 500.com 最新数据...")
+            data_stats = dh.update_from_remote(
+                progress_callback=lambda m: print(f"  {m}")
+            )
+            if data_stats.get("success"):
+                added = data_stats.get("added", 0)
+                updated = data_stats.get("updated", 0)
+                print(
+                    f"[{datetime.now()}] 数据合并: +{added} 新增, "
+                    f"{updated} 更新, 最新 {data_stats.get('after_issue')} "
+                    f"(共 {data_stats.get('after_n')} 期)"
+                )
+                if added or updated:
+                    reinit_engine(mode="auto")  # 进程内 soft；到期 full
+                last_data_update = datetime.now()
+            else:
+                print(
+                    f"[{datetime.now()}] 数据爬取失败: "
+                    f"{data_stats.get('error')}，使用本地数据继续预测"
+                )
+
         report = p.run(n_candidates=2000)
         p.save(report)
         last_run = datetime.now()
-        print(f"[{datetime.now()}] 更新完成: {report['current_issue']}")
-        return True
+        print(
+            f"[{datetime.now()}] 更新完成: 数据期={dh.latest_issue}, "
+            f"预测目标={report.get('current_issue')}"
+        )
+        return {
+            "success": True,
+            "latest_issue": dh.latest_issue,
+            "total_draws": dh.N,
+            "predict_issue": report.get("current_issue"),
+            "data_stats": data_stats,
+        }
     except Exception as e:
         print(f"[{datetime.now()}] 更新失败: {e}")
         import traceback
         traceback.print_exc()
-        return False
+        return {"success": False, "error": str(e)}
+    finally:
+        _update_lock.release()
 
 
-# ── 定时器 ──────────────────────────────────────────────────
+def _scheduled_draw_update():
+    """开奖日定时任务：强制爬取 + 预测"""
+    print(f"[{datetime.now()}] 开奖日定时更新触发")
+    run_update(fetch_data=True)
+
+
+def _startup_update():
+    """
+    启动策略:
+    - STARTUP_FETCH=True  → 后台完整更新
+    - STARTUP_FETCH=False → 仅在无预测文件时本地预测
+    - STARTUP_FETCH=auto  → 数据可能过期则后台爬取，否则确保有预测结果
+    """
+    need_fetch = False
+    if STARTUP_FETCH is True or str(STARTUP_FETCH).lower() == "true":
+        need_fetch = True
+    elif STARTUP_FETCH is False or str(STARTUP_FETCH).lower() == "false":
+        need_fetch = False
+    else:
+        need_fetch = should_fetch_now()
+
+    if need_fetch:
+        print(f"[{datetime.now()}] 启动: 数据可能过期，后台爬取更新...")
+        threading.Thread(
+            target=lambda: run_update(fetch_data=True),
+            daemon=True,
+            name="startup-update",
+        ).start()
+    else:
+        report = p.load_saved()
+        if report is None:
+            print(f"[{datetime.now()}] 启动: 无缓存预测，本地快速预测...")
+            run_update(fetch_data=False)
+        else:
+            print(
+                f"[{datetime.now()}] 启动: 本地数据新鲜 "
+                f"({dh.latest_issue} / {dh.dates[-1]})，跳过爬取"
+            )
+
+
+# ── 定时器：开奖日 22:00 ────────────────────────────────────
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(
-    run_update,
-    'cron',
+    _scheduled_draw_update,
+    "cron",
+    day_of_week=",".join(str(d) for d in DRAW_WEEKDAYS),
     hour=UPDATE_HOUR,
     minute=UPDATE_MINUTE,
-    id='daily_predict_update',
+    id="draw_day_update",
+    replace_existing=True,
 )
 scheduler.start()
 
-# 启动时立即跑一次
-run_update()
+_startup_update()
 
 
 # ── Flask ────────────────────────────────────────────────────
@@ -117,9 +331,10 @@ def api_predict():
 
 @app.route('/api/predict/run')
 def api_predict_run():
-    """API: 执行预测，?evolve=true 启用全量进化"""
+    """API: 执行预测。?evolve=true 启用研究用自洽进化；?mode=legacy|multi|dual"""
     evolve = request.args.get('evolve', 'false').lower() == 'true'
-    report = p.run(n_candidates=2000, evolve=evolve)
+    mode = request.args.get('mode', None)
+    report = p.run(n_candidates=2000, evolve=evolve, scoring_mode=mode)
     p.save(report)
     return jsonify(report)
 
@@ -276,9 +491,11 @@ def api_periods():
 
 @app.route('/api/update')
 def api_update():
-    """API: 手动触发更新"""
-    ok = run_update()
-    return jsonify({'success': ok, 'time': str(datetime.now())})
+    """API: 手动触发完整更新（爬取+预测）。?predict_only=1 仅重跑预测"""
+    predict_only = request.args.get('predict_only', '0') in ('1', 'true', 'yes')
+    result = run_update(fetch_data=not predict_only)
+    result['time'] = str(datetime.now())
+    return jsonify(result)
 
 
 @app.route('/api/predict/save', methods=['POST'])
@@ -295,20 +512,40 @@ def api_save_predictions():
     dh.db_query("INSERT INTO predict_batch (target_issue,total_entries) VALUES (?,?)", (target, total))
     batch_id = dh.db_query_one("SELECT MAX(batch_id) FROM predict_batch")[0]
     
+    def _rank_order(label):
+        s = str(label)
+        if s.isdigit():
+            return int(s)
+        if len(s) == 1 and s.isalpha():
+            return 100 + (ord(s.upper()) - 64)  # A=101 ...
+        return 0
+
     inserted = 0
-    # 保存单注
+    # 保存单注（rank 统一 TEXT + rank_order）
     for p in predictions:
-        dh.db_query("INSERT INTO predictions (batch_id,target_issue,entry_type,rank,reds,blue,consistency,cost,est_prize1) VALUES (?,?,?,?,?,?,?,?,?)",
-            (batch_id, target, 'single', p['rank'], _json.dumps(p['reds']), p['blue'], p['consistency'], p['cost'], p.get('est_prize1', 0)))
+        rlabel = str(p['rank'])
+        dh.db_query(
+            "INSERT INTO predictions (batch_id,target_issue,entry_type,rank,rank_order,reds,blue,consistency,cost,est_prize1) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?)",
+            (batch_id, target, 'single', rlabel, _rank_order(rlabel),
+             _json.dumps(p['reds']), p['blue'], p['consistency'], p['cost'], p.get('est_prize1', 0)),
+        )
         inserted += 1
     # 保存复式
-    rank_map = {0:'A',1:'B',2:'C',3:'D'}
+    rank_map = {0: 'A', 1: 'B', 2: 'C', 3: 'D'}
     for i, c in enumerate(compounds):
-        dh.db_query("INSERT INTO predictions (batch_id,target_issue,entry_type,rank,reds,blue,reds_count,blues_count,consistency,cost,total_cost,total_combos) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-            (batch_id, target, 'compound', rank_map.get(i, chr(65+i)), _json.dumps(c['reds']), _json.dumps(c['blues']),
-             len(c['reds']), len(c['blues']), c['consistency'], c.get('avg_match_rate', 0), c['total_cost'], c['total_combos']))
+        rlabel = rank_map.get(i, chr(65 + i))
+        dh.db_query(
+            "INSERT INTO predictions (batch_id,target_issue,entry_type,rank,rank_order,reds,blue,"
+            "reds_count,blues_count,consistency,cost,total_cost,total_combos) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (batch_id, target, 'compound', rlabel, _rank_order(rlabel),
+             _json.dumps(c['reds']), _json.dumps(c['blues']),
+             len(c['reds']), len(c['blues']), c['consistency'], c.get('avg_match_rate', 0),
+             c['total_cost'], c['total_combos']),
+        )
         inserted += 1
-    
+
     return jsonify({'saved': inserted, 'batch_id': batch_id, 'target': target})
 
 
@@ -319,7 +556,7 @@ def api_comparison():
         SELECT p.id,p.batch_id,p.saved_at,p.target_issue,p.rank,p.reds,p.blue,p.consistency,p.hit_red,p.hit_blue,
                d.red1,d.red2,d.red3,d.red4,d.red5,d.red6,d.blue as actual_blue
         FROM predictions p LEFT JOIN draws d ON p.target_issue = d.issue
-        ORDER BY p.target_issue DESC, p.rank
+        ORDER BY p.target_issue DESC, p.rank_order, p.rank
     """)
     results = []
     for r in rows:
@@ -339,9 +576,15 @@ def api_status():
     report = p.load_saved()
     return jsonify({
         'data_version': dh.latest_issue,
+        'latest_date': dh.dates[-1] if dh.dates else None,
+        'next_issue': dh.next_issue,
         'last_update': str(last_run) if last_run else None,
+        'last_data_update': str(last_data_update) if last_data_update else None,
         'predict_ready': report is not None,
         'total_draws': dh.N,
+        'should_fetch': should_fetch_now(),
+        'draw_weekdays': DRAW_WEEKDAYS,
+        'update_cron': f"{UPDATE_HOUR:02d}:{UPDATE_MINUTE:02d} weekdays={DRAW_WEEKDAYS}",
     })
 
 
