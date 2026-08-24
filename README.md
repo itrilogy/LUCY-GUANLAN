@@ -1,17 +1,18 @@
 <div align="center">
-  <img src="web/static/brand/favicon.svg" width="88" height="88" alt="双色球市场分析" />
+  <img src="web/static/brand/favicon.svg" width="88" height="88" alt="观澜 · GuanLan" />
   &nbsp;&nbsp;
   <img src="web/static/brand/luxi-lab-main.svg" width="88" height="88" alt="鹿溪联合创新实验室" />
 </div>
 
-<h1 align="center">双色球市场分析系统</h1>
+<h1 align="center">观澜 · GuanLan</h1>
 
 <p align="center">
-  <strong>市场状态 · 组合结构 · 诚实评估</strong>
+  <strong>观澜 · GuanLan（双色球市场分析）</strong><br/>
+  <em>观水有术，由表及澜</em>
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Product-双色球市场分析-E74C3C" alt="product" />
+  <img src="https://img.shields.io/badge/Product-观澜%20GuanLan-E74C3C" alt="product" />
   <img src="https://img.shields.io/badge/Lab-鹿溪联合创新实验室-0D5E42" alt="lab" />
   <img src="https://img.shields.io/badge/Version-V1.0-f1c40f" alt="version" />
   <img src="https://img.shields.io/badge/Stack-Python%20%7C%20Flask%20%7C%20NumPy-blue" alt="stack" />
@@ -23,16 +24,16 @@
 </p>
 
 <p align="center">
-  <img src="web/static/brand/logo.svg" width="360" alt="双色球市场分析 横版字锁" />
+  <img src="web/static/brand/logo.svg" width="360" alt="观澜 · GuanLan 横版字锁" />
 </p>
 
 ---
 
 ## 方法边界（诚实声明）
 
-- **可分析**：奖池 / 投注 / 头奖注数等**市场状态**
-- **近随机**：红蓝球开奖本身
-- **一致性 / final 等评分** = 模型内部自洽或结构排序，**不是中奖概率**
+- **可分析**：奖池 / 投注 / 头奖注数等**市场状态**与组合空间拥挤度
+- **近随机**：红蓝球开奖本身接近真随机
+- **一致性 / final 等评分** = 模型内部自洽或结构排序，**不是中奖预言**
 
 详细用户说明见软著/发行手册（文末链接）。
 
@@ -243,7 +244,7 @@ ssq_predictor/
 | 用户使用手册（发行） | [`docs/release/03-用户使用手册-发行版.md`](docs/release/03-用户使用手册-发行版.md) |
 | 免责声明 | [`docs/release/06-免责声明与使用规范.md`](docs/release/06-免责声明与使用规范.md) |
 
-软件全称：**双色球市场分析系统**　版本：**V1.0**
+软件全称：**观澜 · GuanLan（双色球市场分析）**　版本：**V1.0**
 
 ---
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-双色球预测分析工具 —— Web 服务入口
+观澜 · GuanLan（双色球市场分析）—— Web 服务入口
 
 Flask + APScheduler：开奖日 22:00 自动爬取并预测
 """

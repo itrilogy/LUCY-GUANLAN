@@ -240,8 +240,8 @@ class Predictor:
                 "研究用自洽进化（非命中优化）" if evolve else None
             ),
             "disclaimer": (
-                "本工具刻画奖池/投注市场状态与组合结构/拥挤度；"
-                "红蓝球近随机；一致性不是中奖概率。"
+                "本工具客观刻画奖池状态与组合拥挤度，"
+                "红蓝球开奖接近真随机，一致性评分非中奖预言。"
             ),
             "market": {
                 "regime": regime_desc["pool_state"],
