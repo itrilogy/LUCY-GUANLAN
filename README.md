@@ -20,7 +20,7 @@
 
 <p align="center">
   <b>鹿溪联合创新实验室（LUXI Joint Innovation Lab）</b> 出品<br/>
-  工程目录 <code>ssq_predictor</code> · 基于公开历史数据的本地 Web 分析工具
+  工程目录 <code>LUCY-GUANLAN</code> · 基于公开历史数据的本地 Web 分析工具
 </p>
 
 <p align="center">
@@ -41,7 +41,7 @@
 
 ## 快速开始
 
-在 **`ssq_predictor` 目录**下执行（本仓库根即该目录时直接用）：
+在 **`LUCY-GUANLAN` 目录**下执行（本仓库根即该目录时直接用）：
 
 ```bash
 # 1. 依赖（首次或 requirements 变更时）
@@ -87,7 +87,7 @@ make serve
 | 端口被占用 | 修改 `config.py` 中 `PORT`，或结束占用 8080 的进程 |
 | 页面无 LOGO | 确认 `web/static/brand/` 完整（自包含，无外链） |
 | 依赖缺失 | 重新 `pip install -r requirements.txt` |
-| 必须在本目录执行 | 在含有 `Makefile` 的 `ssq_predictor/` 下运行 |
+| 必须在本目录执行 | 在含有 `Makefile` 的 `LUCY-GUANLAN/` 下运行 |
 
 更完整的安装、升级、生产部署见：  
 [`docs/release/02-安装部署手册.md`](docs/release/02-安装部署手册.md)  
@@ -98,7 +98,7 @@ make serve
 
 ## Make / CLI 命令一览
 
-所有 `make` 目标均在 **`ssq_predictor/`** 下执行。  
+所有 `make` 目标均在 **`LUCY-GUANLAN/`** 下执行。  
 等价 CLI：`python3 scripts/cli.py <子命令>`（**不要**使用 `python -m scripts`）。
 
 | 命令 | 作用 | 典型场景 |
@@ -188,7 +188,7 @@ docker compose up --build
 ## 目录结构
 
 ```
-ssq_predictor/
+LUCY-GUANLAN/
 ├── app.py                 # Flask 入口 + 调度
 ├── config.py              # 配置与 cutover 覆盖
 ├── Makefile
