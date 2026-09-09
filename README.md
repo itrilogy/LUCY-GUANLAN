@@ -1,17 +1,18 @@
 <div align="center">
-  <img src="web/static/brand/favicon.svg" width="88" height="88" alt="观澜 · GuanLan" />
+  <img src="web/static/brand/favicon.svg" width="64" height="64" alt="观澜 · GuanLan 产品标" />
   &nbsp;&nbsp;
-  <img src="web/static/brand/luxi-lab-main.svg" width="88" height="88" alt="鹿溪联合创新实验室" />
+  <img src="web/static/brand/luxi-lab-main.svg" width="64" height="64" alt="鹿溪联合创新实验室 LUXI LAB" />
 </div>
 
-<h1 align="center">观澜 · GuanLan</h1>
+<h1 align="center">观澜 · GuanLan（双色球市场分析）</h1>
 
 <p align="center">
-  <strong>观澜 · GuanLan（双色球市场分析）</strong><br/>
-  <em>观水有术，由表及澜</em>
+  <strong>观水有术，由表及澜</strong><br/>
+  <em>Understanding structural entropy, discerning natural tides.</em>
 </p>
 
 <p align="center">
+  <img src="https://img.shields.io/badge/Matrix-理数%C2%B7三思-0D5E42" alt="matrix" />
   <img src="https://img.shields.io/badge/Product-观澜%20GuanLan-E74C3C" alt="product" />
   <img src="https://img.shields.io/badge/Lab-鹿溪联合创新实验室-0D5E42" alt="lab" />
   <img src="https://img.shields.io/badge/Version-V1.0-f1c40f" alt="version" />
@@ -19,15 +20,13 @@
 </p>
 
 <p align="center">
-  <b>鹿溪联合创新实验室（LUXI Joint Innovation Lab）</b> 出品<br/>
-  工程目录 <code>LUCY-GUANLAN</code> · 基于公开历史数据的本地 Web 分析工具
-</p>
-
-<p align="center">
-  <img src="web/static/brand/logo.svg" width="360" alt="观澜 · GuanLan 横版字锁" />
+  <b>鹿溪联合创新实验室</b>（LUXI Joint Innovation Lab）出品<br/>
+  仓库：<a href="https://github.com/itrilogy/LUCY-GUANLAN">itrilogy/LUCY-GUANLAN</a>
 </p>
 
 ---
+
+基于公开历史数据的本地 Web 分析工具（工程目录 `LUCY-GUANLAN`）。
 
 ## 方法边界（诚实声明）
 
@@ -39,20 +38,24 @@
 
 ---
 
-## 快速开始
+## 🚀 快速开始
 
 在 **`LUCY-GUANLAN` 目录**下执行（本仓库根即该目录时直接用）：
 
 ```bash
-# 1. 依赖（首次或 requirements 变更时）
+# 1. 克隆
+git clone https://github.com/itrilogy/LUCY-GUANLAN.git
+cd LUCY-GUANLAN
+
+# 2. 依赖（首次或 requirements 变更时）
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -r requirements.txt
 
-# 2. 可选：校验本地数据
+# 3. 可选：校验本地数据
 make check
 
-# 3. 启动 Web 服务（日常使用主入口）
+# 4. 启动 Web 服务（日常使用主入口）
 make serve
 ```
 
@@ -96,7 +99,7 @@ make serve
 
 ---
 
-## Make / CLI 命令一览
+## 🛠 Make / CLI 命令一览
 
 所有 `make` 目标均在 **`LUCY-GUANLAN/`** 下执行。  
 等价 CLI：`python3 scripts/cli.py <子命令>`（**不要**使用 `python -m scripts`）。
@@ -137,7 +140,7 @@ make serve       # Web 服务
 
 ---
 
-## 数据更新
+## 📥 数据更新
 
 | 方式 | 说明 |
 |------|------|
@@ -150,7 +153,7 @@ make serve       # Web 服务
 
 ---
 
-## 评分默认与 cutover
+## ⚙️ 评分默认与 cutover
 
 默认由 [`data/eval/scoring_defaults.json`](data/eval/scoring_defaults.json) 控制（`make cutover` 写入）。  
 Cutover 为 **go** 时：默认 `SCORING_MODE=multi`、`EVOLUTION_MODE=off`、条件反向。
@@ -173,7 +176,7 @@ export SSQ_FEATURES_CACHE=0                    # 关闭特征缓存
 
 ---
 
-## Docker
+## 🐳 Docker
 
 ```bash
 docker compose up --build
@@ -185,7 +188,7 @@ docker compose up --build
 
 ---
 
-## 目录结构
+## 📁 目录结构
 
 ```
 LUCY-GUANLAN/
@@ -205,30 +208,33 @@ LUCY-GUANLAN/
 
 ---
 
-## 品牌标识
+## 🎨 品牌标识
 
 运行时与 README 均使用仓库内 **完整自包含** 资源（无外链图床）。
 
-| 用途 | 路径 |
-|------|------|
-| 产品 favicon | [`web/static/brand/favicon.svg`](web/static/brand/favicon.svg) |
-| 产品横版字锁 | [`web/static/brand/logo.svg`](web/static/brand/logo.svg) |
-| **实验室主 LOGO** | [`web/static/brand/luxi-lab-main.svg`](web/static/brand/luxi-lab-main.svg) |
-| 兼容 URL | [`web/static/brand/luxi-lab-lockup.svg`](web/static/brand/luxi-lab-lockup.svg)（与主 LOGO 同源） |
-| 说明 | [`web/static/brand/README.md`](web/static/brand/README.md) |
+| 标识 | 预览 | 说明 | 源文件 |
+| :---: | :---: | :--- | :--- |
+| **产品方标** | <img src="web/static/brand/favicon.svg" width="32" height="32" alt="观澜" /> | 红蓝球 + 市场曲线 + 溪流 | `web/static/brand/favicon.svg` |
+| **产品字锁** | [`web/static/brand/logo.svg`](web/static/brand/logo.svg) | 横版产品字锁 | `web/static/brand/logo.svg` |
+| **实验室主标** | <img src="web/static/brand/luxi-lab-main.svg" width="32" height="32" alt="LUXI LAB" /> | 官方 LUXI LAB（唯一权威源） | `web/static/brand/luxi-lab-main.svg` |
+
+**色板（LUXI CI）**
+
+| Token | 色值 | 用途 |
+| :--- | :--- | :--- |
+| 鹿溪绿 | `#0D5E42` | 主色 / 图标底板 |
+| 源启白 | `#F5F7FA` | 浅色背景 / 反白 |
+| 进化蓝 | `#00D2FF` | 溪流 / 数据高亮 |
+| 警示红 | `#E74C3C` | 红球业务 / 警示 |
+| 业务蓝 | `#3498DB` | 蓝球业务 / 次级信息 |
+| 标题金 | `#F1C40F` | 落点 / 显著信号 |
 
 官方主标源头（品牌治理，**非**运行依赖）：`Obsidian/.../鹿溪联合实验室/LUXI LAB.svg`  
 平行归档：`Obsidian/.../双色球-市场分析-品牌资产/`（与见鹿、听默同级）
 
-<p align="center">
-  <img src="web/static/brand/luxi-lab-main.svg" width="120" height="120" alt="鹿溪联合创新实验室 LUXI Lab" />
-  <br/>
-  <sub>鹿溪联合创新实验室 · LUXI Joint Innovation Lab</sub>
-</p>
-
 ---
 
-## 改造与文档
+## 📚 改造与文档
 
 - 工程改造计划（已落地）：[`docs/ENGINEERING_RENOVATION_PLAN.md`](docs/ENGINEERING_RENOVATION_PLAN.md)  
 - Cutover 决策：[`data/eval/cutover_decision.md`](data/eval/cutover_decision.md)  
@@ -248,8 +254,9 @@ LUCY-GUANLAN/
 
 ---
 
-<p align="center">
-  <img src="web/static/brand/luxi-lab-main.svg" width="72" height="72" alt="LUXI Lab" />
-  <br/>
-  <sub>© 鹿溪联合创新实验室 · 本工具不作中奖承诺</sub>
-</p>
+<div align="center">
+  <img src="web/static/brand/luxi-lab-main.svg" width="48" height="48" alt="LUXI LAB" />
+  <p><strong>观澜 · GuanLan</strong> · 观水有术，由表及澜</p>
+  <p>© 鹿溪联合创新实验室 · LUXI Joint Innovation Lab · 本工具不作中奖承诺</p>
+  <p><em>林深见鹿，源启清溪 · Deep Insights, Evolutionary Origin.</em></p>
+</div>
