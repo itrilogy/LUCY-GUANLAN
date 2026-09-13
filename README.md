@@ -1,7 +1,7 @@
 <div align="center">
-  <img src="web/static/brand/favicon.svg" width="64" height="64" alt="观澜 · GuanLan 产品标" />
+  <img src="web/static/brand/favicon.svg" width="64" height="64" alt="观澜 · GuanLan 产品方标" />
   &nbsp;&nbsp;
-  <img src="web/static/brand/luxi-lab-main.svg" width="64" height="64" alt="鹿溪联合创新实验室 LUXI LAB" />
+  <img src="web/static/brand/luxi-lab.svg" width="64" height="64" alt="鹿溪联合创新实验室 符号标" />
 </div>
 
 <h1 align="center">观澜 · GuanLan（双色球市场分析）</h1>
@@ -15,12 +15,13 @@
   <img src="https://img.shields.io/badge/Matrix-理数%C2%B7三思-0D5E42" alt="matrix" />
   <img src="https://img.shields.io/badge/Product-观澜%20GuanLan-E74C3C" alt="product" />
   <img src="https://img.shields.io/badge/Lab-鹿溪联合创新实验室-0D5E42" alt="lab" />
-  <img src="https://img.shields.io/badge/Version-V1.0-f1c40f" alt="version" />
+  <img src="https://img.shields.io/badge/Design-LUXI%20v1.1-00D2FF" alt="design" />
   <img src="https://img.shields.io/badge/Stack-Python%20%7C%20Flask%20%7C%20NumPy-blue" alt="stack" />
 </p>
 
 <p align="center">
   <b>鹿溪联合创新实验室</b>（LUXI Joint Innovation Lab）出品<br/>
+  设计范式依据：<a href="https://github.com/itrilogy/LUCY-DESIGN">itrilogy/LUCY-DESIGN</a><br/>
   仓库：<a href="https://github.com/itrilogy/LUCY-GUANLAN">itrilogy/LUCY-GUANLAN</a>
 </p>
 
@@ -38,7 +39,7 @@
 
 ---
 
-## 🚀 快速开始
+## 快速开始
 
 在 **`LUCY-GUANLAN` 目录**下执行（本仓库根即该目录时直接用）：
 
@@ -208,33 +209,32 @@ LUCY-GUANLAN/
 
 ---
 
-## 🎨 品牌标识
+## 品牌标识与设计范式
 
-运行时与 README 均使用仓库内 **完整自包含** 资源（无外链图床）。
+项目严格遵循 [LUXI Design System (鹿溪设计范式)](https://github.com/itrilogy/LUCY-DESIGN) v1.1 规范。运行时与 README 均使用仓库内 **完整自包含** 资源（无外链图床）。
 
-| 标识 | 预览 | 说明 | 源文件 |
+| 标识 | 预览 | 规范职能 | 源文件 |
 | :---: | :---: | :--- | :--- |
-| **产品方标** | <img src="web/static/brand/favicon.svg" width="32" height="32" alt="观澜" /> | 红蓝球 + 市场曲线 + 溪流 | `web/static/brand/favicon.svg` |
-| **产品字锁** | [`web/static/brand/logo.svg`](web/static/brand/logo.svg) | 横版产品字锁 | `web/static/brand/logo.svg` |
-| **实验室主标** | <img src="web/static/brand/luxi-lab-main.svg" width="32" height="32" alt="LUXI LAB" /> | 官方 LUXI LAB（唯一权威源） | `web/static/brand/luxi-lab-main.svg` |
+| **产品方标** | <img src="web/static/brand/favicon.svg" width="32" height="32" alt="观澜" /> | 观澜方标：鹿溪绿底 + 红蓝球 + 走势线 + 溪流 + 源启星 | `web/static/brand/favicon.svg` |
+| **产品字锁** | [`web/static/brand/logo.svg`](web/static/brand/logo.svg) | 横版产品字锁（用于对外物料与通栏） | `web/static/brand/logo.svg` |
+| **实验室符号标** | <img src="web/static/brand/luxi-lab.svg" width="32" height="32" alt="LUXI LAB" /> | 出品方统一符号标（无方框，Y+一横，UI与README专用） | `web/static/brand/luxi-lab.svg` |
+| **实验室写实标** | — | 官方写实主标资产（仅用于对外正式件/工商法务，不进UI） | `web/static/brand/luxi-lab-main.svg` |
 
-**色板（LUXI CI）**
+**设计令牌（LUXI CI & Tokens）**
 
-| Token | 色值 | 用途 |
-| :--- | :--- | :--- |
-| 鹿溪绿 | `#0D5E42` | 主色 / 图标底板 |
-| 源启白 | `#F5F7FA` | 浅色背景 / 反白 |
-| 进化蓝 | `#00D2FF` | 溪流 / 数据高亮 |
-| 警示红 | `#E74C3C` | 红球业务 / 警示 |
-| 业务蓝 | `#3498DB` | 蓝球业务 / 次级信息 |
-| 标题金 | `#F1C40F` | 落点 / 显著信号 |
-
-官方主标源头（品牌治理，**非**运行依赖）：`Obsidian/.../鹿溪联合实验室/LUXI LAB.svg`  
-平行归档：`Obsidian/.../双色球-市场分析-品牌资产/`（与见鹿、听默同级）
+| Token 类别 | 变量名 | 色值 / 规范 | 用途说明 |
+| :--- | :--- | :--- | :--- |
+| **Core** | `--luxi-green` | `#0D5E42` | 实验室基石色 / Primary 按钮 / 方标底板 |
+| **Core** | `--origin-white` | `#F5F7FA` | 反白文字 / 浅底容器 |
+| **Core** | `--luxi-cyan` | `#00D2FF` | 进化蓝 / 焦点环 `:focus-visible` / 强调 |
+| **Core** | `--luxi-gold` | `#F1C40F` | 标题金 / 突出指标 / 警告 |
+| **Product** | `--product-accent` | `#E74C3C` | 观澜主序列 / 红球业务 / 拥挤度 |
+| **Product** | `--product-accent-2`| `#3498DB` | 观澜次序列 / 蓝球业务 / 辅助分析 |
+| **Semantic**| `--text-ok/danger` | 保证 ≥ 4.5:1 | 文字专用色（面字分离，符合 v1.1 修正案） |
 
 ---
 
-## 📚 改造与文档
+## 改造与文档
 
 - 工程改造计划（已落地）：[`docs/ENGINEERING_RENOVATION_PLAN.md`](docs/ENGINEERING_RENOVATION_PLAN.md)  
 - Cutover 决策：[`data/eval/cutover_decision.md`](data/eval/cutover_decision.md)  
@@ -255,8 +255,8 @@ LUCY-GUANLAN/
 ---
 
 <div align="center">
-  <img src="web/static/brand/luxi-lab-main.svg" width="48" height="48" alt="LUXI LAB" />
+  <img src="web/static/brand/luxi-lab.svg" width="48" height="48" alt="LUXI LAB" />
   <p><strong>观澜 · GuanLan</strong> · 观水有术，由表及澜</p>
-  <p>© 鹿溪联合创新实验室 · LUXI Joint Innovation Lab · 本工具不作中奖承诺</p>
+  <p>© 鹿溪联合创新实验室 · LUXI Joint Innovation Lab · 本工具客观刻画市场分布，不作中奖承诺</p>
   <p><em>林深见鹿，源启清溪 · Deep Insights, Evolutionary Origin.</em></p>
 </div>

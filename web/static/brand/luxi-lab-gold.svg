@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="鹿溪联合创新实验室 LUXI LAB">
+  <!--
+    实验室符号标 · 烫金版（标题金 #F1C40F）
+    用于：深底（底为深则标为金）。整标同色，符号标本身即单色几何体。
+    形态与 luxi-lab.svg 完全同构，仅取色不同。
+  -->
+  <g fill="none" stroke="#F1C40F" stroke-width="6" stroke-linecap="butt">
+    <path d="M23 24C22 15 16 9 8 8"/>
+    <path d="M25 24C26 15 32 9 40 8"/>
+    <path d="M24 22V39"/>
+  </g>
+  <path d="M14 25H34" fill="none" stroke="#F1C40F" stroke-width="7" stroke-linecap="butt"/>
+</svg>

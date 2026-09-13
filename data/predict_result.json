@@ -1,6 +1,6 @@
 {
-  "update_time": "2026-08-18 18:41:51",
-  "current_issue": "26095",
+  "update_time": "2026-09-13 14:00:30",
+  "current_issue": "26106",
   "elapsed": 1.1,
   "scoring_mode": "multi",
   "sort_key": "final",
@@ -11,16 +11,16 @@
   "market": {
     "regime": "平衡",
     "regime_id": 3,
-    "pool": 616242219,
-    "bet": 373881722,
-    "p1c_market_hat": 7.57,
+    "pool": 833007469,
+    "bet": 333874688,
+    "p1c_market_hat": 6.85,
     "predicted_pool_range": [
-      554617997,
-      677866440
+      749706722,
+      916308215
     ],
     "predicted_bet_range": [
-      262362126,
-      320664821
+      287162406,
+      350976274
     ]
   },
   "predictions": [
@@ -28,360 +28,360 @@
       "rank": 1,
       "reds": [
         3,
-        8,
+        7,
+        12,
         16,
-        21,
-        29,
+        30,
         33
       ],
-      "blue": 13,
+      "blue": 14,
       "consistency": 0.2141,
-      "cost": 1.49,
+      "cost": 1.56,
       "est_prize1": 5,
       "passed": true,
       "scores": {
-        "anti_crowd": 0.8601,
-        "structure": 0.877,
+        "anti_crowd": 0.8148,
+        "structure": 0.8987,
         "market_fit": 0.5,
-        "final": 0.7948,
+        "final": 0.7854,
         "consistency": 0.2141,
-        "crowd_raw": 1.49,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "crowd_raw": 1.56,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7948
+      "final": 0.7854
     },
     {
       "rank": 2,
       "reds": [
-        4,
         8,
-        17,
-        22,
-        29,
-        32
+        10,
+        12,
+        19,
+        23,
+        33
       ],
-      "blue": 16,
+      "blue": 1,
       "consistency": 0.2141,
-      "cost": 1.55,
+      "cost": 1.66,
       "est_prize1": 5,
       "passed": true,
       "scores": {
-        "anti_crowd": 0.8354,
-        "structure": 0.8936,
+        "anti_crowd": 0.7737,
+        "structure": 0.9366,
         "market_fit": 0.5,
-        "final": 0.7916,
+        "final": 0.7841,
         "consistency": 0.2141,
-        "crowd_raw": 1.55,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "crowd_raw": 1.66,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7916
+      "final": 0.7841
     },
     {
       "rank": 3,
       "reds": [
-        7,
-        10,
+        5,
+        9,
         12,
         16,
         23,
-        33
+        32
       ],
-      "blue": 3,
-      "consistency": 0.1195,
-      "cost": 1.7,
-      "est_prize1": 6,
-      "passed": false,
+      "blue": 6,
+      "consistency": 0.2141,
+      "cost": 1.64,
+      "est_prize1": 5,
+      "passed": true,
       "scores": {
-        "anti_crowd": 0.7737,
-        "structure": 0.9399,
+        "anti_crowd": 0.7819,
+        "structure": 0.9283,
         "market_fit": 0.5,
-        "final": 0.7854,
-        "consistency": 0.1195,
-        "crowd_raw": 1.7,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "final": 0.7841,
+        "consistency": 0.2141,
+        "crowd_raw": 1.64,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7854
+      "final": 0.7841
     },
     {
       "rank": 4,
       "reds": [
         3,
-        4,
-        16,
-        20,
-        31,
-        33
-      ],
-      "blue": 15,
-      "consistency": 0.1195,
-      "cost": 1.71,
-      "est_prize1": 6,
-      "passed": false,
-      "scores": {
-        "anti_crowd": 0.7695,
-        "structure": 0.9352,
-        "market_fit": 0.5,
-        "final": 0.7819,
-        "consistency": 0.1195,
-        "crowd_raw": 1.71,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
-      },
-      "final": 0.7819
-    },
-    {
-      "rank": 5,
-      "reds": [
-        3,
-        5,
-        15,
-        22,
-        26,
+        10,
+        14,
+        19,
+        24,
         32
       ],
-      "blue": 10,
+      "blue": 9,
       "consistency": 0.2141,
       "cost": 1.55,
       "est_prize1": 5,
       "passed": true,
       "scores": {
-        "anti_crowd": 0.8354,
-        "structure": 0.8672,
+        "anti_crowd": 0.8189,
+        "structure": 0.8872,
         "market_fit": 0.5,
-        "final": 0.781,
+        "final": 0.7824,
         "consistency": 0.2141,
         "crowd_raw": 1.55,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.781
+      "final": 0.7824
+    },
+    {
+      "rank": 5,
+      "reds": [
+        2,
+        5,
+        12,
+        20,
+        27,
+        33
+      ],
+      "blue": 3,
+      "consistency": 0.2141,
+      "cost": 1.55,
+      "est_prize1": 5,
+      "passed": true,
+      "scores": {
+        "anti_crowd": 0.8189,
+        "structure": 0.8834,
+        "market_fit": 0.5,
+        "final": 0.7809,
+        "consistency": 0.2141,
+        "crowd_raw": 1.55,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
+      },
+      "final": 0.7809
     },
     {
       "rank": 6,
       "reds": [
         3,
         5,
-        18,
+        19,
         22,
-        27,
-        33
+        26,
+        32
       ],
-      "blue": 14,
+      "blue": 15,
       "consistency": 0.2141,
-      "cost": 1.59,
+      "cost": 1.55,
       "est_prize1": 5,
       "passed": true,
       "scores": {
         "anti_crowd": 0.8189,
-        "structure": 0.8791,
+        "structure": 0.8831,
         "market_fit": 0.5,
-        "final": 0.7792,
+        "final": 0.7808,
         "consistency": 0.2141,
-        "crowd_raw": 1.59,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "crowd_raw": 1.55,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7792
+      "final": 0.7808
     },
     {
       "rank": 7,
       "reds": [
-        4,
-        6,
-        13,
-        19,
-        25,
+        7,
+        10,
+        12,
+        22,
+        31,
         33
       ],
-      "blue": 2,
+      "blue": 4,
       "consistency": 0.2141,
-      "cost": 1.63,
+      "cost": 1.67,
       "est_prize1": 5,
       "passed": true,
       "scores": {
-        "anti_crowd": 0.8025,
-        "structure": 0.8952,
+        "anti_crowd": 0.7695,
+        "structure": 0.9223,
         "market_fit": 0.5,
-        "final": 0.7791,
+        "final": 0.7768,
         "consistency": 0.2141,
-        "crowd_raw": 1.63,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "crowd_raw": 1.67,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7791
+      "final": 0.7768
     },
     {
       "rank": 8,
       "reds": [
         1,
-        8,
-        16,
-        18,
-        29,
-        32
+        10,
+        17,
+        20,
+        24,
+        33
       ],
-      "blue": 10,
+      "blue": 7,
       "consistency": 0.2141,
-      "cost": 1.49,
+      "cost": 1.48,
       "est_prize1": 5,
       "passed": true,
       "scores": {
-        "anti_crowd": 0.8601,
-        "structure": 0.8371,
+        "anti_crowd": 0.8477,
+        "structure": 0.8412,
         "market_fit": 0.5,
-        "final": 0.7789,
+        "final": 0.7756,
         "consistency": 0.2141,
-        "crowd_raw": 1.49,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "crowd_raw": 1.48,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7789
+      "final": 0.7756
     },
     {
       "rank": 9,
       "reds": [
-        1,
         3,
-        7,
-        16,
-        26,
+        11,
+        19,
+        21,
+        24,
         32
       ],
-      "blue": 2,
+      "blue": 5,
       "consistency": 0.2141,
-      "cost": 1.46,
+      "cost": 1.54,
       "est_prize1": 5,
       "passed": true,
       "scores": {
-        "anti_crowd": 0.8724,
-        "structure": 0.8199,
+        "anti_crowd": 0.823,
+        "structure": 0.8602,
         "market_fit": 0.5,
-        "final": 0.7769,
+        "final": 0.7733,
         "consistency": 0.2141,
-        "crowd_raw": 1.46,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "crowd_raw": 1.54,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7769
+      "final": 0.7733
     },
     {
       "rank": 10,
       "reds": [
-        4,
         5,
-        16,
-        19,
-        26,
+        11,
+        14,
+        20,
+        24,
         33
       ],
-      "blue": 1,
-      "consistency": 0.1195,
-      "cost": 1.78,
-      "est_prize1": 6,
-      "passed": false,
+      "blue": 4,
+      "consistency": 0.2141,
+      "cost": 1.69,
+      "est_prize1": 5,
+      "passed": true,
       "scores": {
-        "anti_crowd": 0.7407,
-        "structure": 0.9503,
+        "anti_crowd": 0.7613,
+        "structure": 0.9192,
         "market_fit": 0.5,
-        "final": 0.7764,
-        "consistency": 0.1195,
-        "crowd_raw": 1.78,
-        "p1c_hat": 7.572,
-        "p1c_market": 7.572
+        "final": 0.7722,
+        "consistency": 0.2141,
+        "crowd_raw": 1.69,
+        "p1c_hat": 6.851,
+        "p1c_market": 6.851
       },
-      "final": 0.7764
+      "final": 0.7722
     }
   ],
   "predictions_legacy": null,
   "popularity": {
     "hot": [
-      6,
-      17,
-      24,
-      25,
-      13,
-      15,
-      5,
       2,
-      23,
-      18
+      15,
+      4,
+      14,
+      30,
+      13,
+      31,
+      16,
+      25,
+      22
     ],
     "cold": [
-      22,
-      10,
-      31,
       28,
-      32,
-      1,
-      19,
+      10,
+      6,
       29,
-      3,
-      26
+      21,
+      17,
+      23,
+      33,
+      7,
+      32
     ],
     "birthday_effect": 1.16
   },
   "last_review": {
-    "issue": "26094",
+    "issue": "26105",
     "actual_reds": [
-      6,
+      2,
+      4,
       13,
+      14,
       15,
-      17,
-      24,
-      25
+      30
     ],
-    "actual_blue": 1
+    "actual_blue": 8
   },
   "compound_plans": [
     {
       "reds": [
-        5,
-        7,
+        6,
         9,
         10,
-        11,
         16,
-        18,
-        29
+        17,
+        19,
+        24,
+        30
       ],
       "blues": [
         1
       ],
       "total_combos": 28,
       "total_cost": 56,
-      "weighted_score": 25.96,
-      "coverage_rate": 0.0215,
+      "weighted_score": 23.46,
+      "coverage_rate": 0.0198,
       "consistency": 0.3,
-      "avg_match_rate": 0.0215,
+      "avg_match_rate": 0.0198,
       "build_steps": [
         {
           "step": 0,
           "action": "基底",
           "ball": null,
           "reds_count": 6,
-          "coverage": 0.0159,
+          "coverage": 0.0142,
           "cumulative_gain": 0
         },
         {
           "step": 1,
           "action": "加红球",
-          "ball": 16,
+          "ball": 30,
           "reds_count": 7,
-          "coverage": 0.0187,
-          "gain": 3.4058,
-          "cumulative_gain": 3.4058
+          "coverage": 0.0171,
+          "gain": 3.4204,
+          "cumulative_gain": 3.4204
         },
         {
           "step": 2,
           "action": "加红球",
-          "ball": 5,
+          "ball": 19,
           "reds_count": 8,
-          "coverage": 0.0215,
-          "gain": 3.3433,
-          "cumulative_gain": 6.7491
+          "coverage": 0.0198,
+          "gain": 3.1818,
+          "cumulative_gain": 6.6022
         }
       ],
       "tier_name": "经济型",
@@ -389,60 +389,60 @@
     },
     {
       "reds": [
-        5,
-        7,
+        6,
         9,
         10,
-        11,
         16,
+        17,
         18,
-        26,
-        29
+        19,
+        24,
+        30
       ],
       "blues": [
         1
       ],
       "total_combos": 84,
       "total_cost": 168,
-      "weighted_score": 29.3,
-      "coverage_rate": 0.0243,
+      "weighted_score": 26.62,
+      "coverage_rate": 0.0224,
       "consistency": 0.3,
-      "avg_match_rate": 0.0243,
+      "avg_match_rate": 0.0224,
       "build_steps": [
         {
           "step": 0,
           "action": "基底",
           "ball": null,
           "reds_count": 6,
-          "coverage": 0.0159,
+          "coverage": 0.0142,
           "cumulative_gain": 0
         },
         {
           "step": 1,
           "action": "加红球",
-          "ball": 16,
+          "ball": 30,
           "reds_count": 7,
-          "coverage": 0.0187,
-          "gain": 3.4058,
-          "cumulative_gain": 3.4058
+          "coverage": 0.0171,
+          "gain": 3.4204,
+          "cumulative_gain": 3.4204
         },
         {
           "step": 2,
           "action": "加红球",
-          "ball": 5,
+          "ball": 19,
           "reds_count": 8,
-          "coverage": 0.0215,
-          "gain": 3.3433,
-          "cumulative_gain": 6.7491
+          "coverage": 0.0198,
+          "gain": 3.1818,
+          "cumulative_gain": 6.6022
         },
         {
           "step": 3,
           "action": "加红球",
-          "ball": 26,
+          "ball": 18,
           "reds_count": 9,
-          "coverage": 0.0243,
-          "gain": 3.3432,
-          "cumulative_gain": 10.0923
+          "coverage": 0.0224,
+          "gain": 3.1621,
+          "cumulative_gain": 9.7643
         }
       ],
       "tier_name": "标准型",
@@ -450,80 +450,80 @@
     },
     {
       "reds": [
-        5,
-        7,
+        6,
         9,
         10,
-        11,
         16,
+        17,
         18,
-        26,
-        27,
-        29
+        19,
+        23,
+        24,
+        30
       ],
       "blues": [
         1,
-        10
+        4
       ],
       "total_combos": 420,
       "total_cost": 840,
-      "weighted_score": 60.31,
-      "coverage_rate": 0.05,
-      "consistency": 0.3,
-      "avg_match_rate": 0.05,
+      "weighted_score": 58.92,
+      "coverage_rate": 0.0496,
+      "consistency": 0.0087,
+      "avg_match_rate": 0.0496,
       "build_steps": [
         {
           "step": 0,
           "action": "基底",
           "ball": null,
           "reds_count": 6,
-          "coverage": 0.0159,
+          "coverage": 0.0142,
           "cumulative_gain": 0
         },
         {
           "step": 1,
           "action": "加红球",
-          "ball": 16,
+          "ball": 30,
           "reds_count": 7,
-          "coverage": 0.0187,
-          "gain": 3.4058,
-          "cumulative_gain": 3.4058
+          "coverage": 0.0171,
+          "gain": 3.4204,
+          "cumulative_gain": 3.4204
         },
         {
           "step": 2,
           "action": "加红球",
-          "ball": 5,
+          "ball": 19,
           "reds_count": 8,
-          "coverage": 0.0215,
-          "gain": 3.3433,
-          "cumulative_gain": 6.7491
+          "coverage": 0.0198,
+          "gain": 3.1818,
+          "cumulative_gain": 6.6022
         },
         {
           "step": 3,
           "action": "加红球",
-          "ball": 26,
+          "ball": 18,
           "reds_count": 9,
-          "coverage": 0.0243,
-          "gain": 3.3432,
-          "cumulative_gain": 10.0923
+          "coverage": 0.0224,
+          "gain": 3.1621,
+          "cumulative_gain": 9.7643
         },
         {
           "step": 4,
           "action": "加红球",
-          "ball": 27,
+          "ball": 23,
           "reds_count": 10,
-          "coverage": 0.0269,
-          "gain": 3.1432,
-          "cumulative_gain": 13.2356
+          "coverage": 0.025,
+          "gain": 3.0366,
+          "cumulative_gain": 12.8009
         },
         {
           "step": 5,
           "action": "加蓝球",
-          "ball": 10,
+          "ball": 4,
           "reds_count": 10,
           "blues_count": 2,
-          "coverage": 0.05,
-          "gain": 27.8676
+          "coverage": 0.0496,
+          "gain": 29.2648
         }
       ],
       "tier_name": "豪华型",
@@ -534,30 +534,30 @@
       "tier_desc": "420注=840元 · 频次参考",
       "reds": [
         3,
-        4,
         5,
-        8,
-        16,
-        22,
-        26,
-        29,
+        7,
+        10,
+        12,
+        19,
+        20,
+        24,
         32,
         33
       ],
       "blues": [
-        2,
-        10
+        4,
+        14
       ],
       "total_combos": 420,
       "total_cost": 840,
       "avg_match_rate": 0.1667,
-      "consistency": 0.1857,
+      "consistency": 0.2141,
       "note": "非评分排序，仅频次参考"
     }
   ],
   "stats": {
     "total_candidates": 2000,
-    "top_score": 0.7948,
-    "avg_score": 0.78252
+    "top_score": 0.7854,
+    "avg_score": 0.7795599999999999
   }
 }

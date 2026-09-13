@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" role="img" aria-label="鹿溪联合创新实验室 LUXI LAB">
+  <!--
+    鹿溪联合创新实验室 · 符号标（角本位 · Y + 一横）
+    范式：LUXI Design System v1.1（LUCY-DESIGN）
+    实现：Sample/luxi-scenario-kit-final.html §VI <symbol id="luxi-symbol-mark">
+
+    形态：鹿角即「Y 形分叉」，符号化为 Y + 一道清溪横线；几何加粗、直角端点。
+          与 ¥ 的差异 —— 只有一道横，且横线上移至 Y 的三岔路口；
+          横宽 7 > 竖杆 6，盖住 V 与 I 的接缝。
+    LOGO 本身不含方框背景，靠与所在底材形成差异色成立。
+
+    用色（白底 / 浅底）：
+      · Y 形分叉 → 鹿溪绿 #0D5E42
+      · 清溪横线 → 进化蓝 #00D2FF
+    独立 SVG 经 <img> 引入时不解析 var() / currentColor，故写显式色值。
+    绿／深底请改用 luxi-lab-inverse.svg；深底烫金用 luxi-lab-gold.svg。
+  -->
+  <g fill="none" stroke="#0D5E42" stroke-width="6" stroke-linecap="butt">
+    <path d="M23 24C22 15 16 9 8 8"/>
+    <path d="M25 24C26 15 32 9 40 8"/>
+    <path d="M24 22V39"/>
+  </g>
+  <path d="M14 25H34" fill="none" stroke="#00D2FF" stroke-width="7" stroke-linecap="butt"/>
+</svg>

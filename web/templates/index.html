@@ -1,288 +1,436 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="dark" data-product="guanlan" data-density="comfortable">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
 <title>观澜 · GuanLan - 双色球市场状态与组合结构分析</title>
 <link rel="icon" href="/static/brand/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/static/brand/favicon.svg">
-<style>
-*{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;background:#0a0e17;color:#e0e6f0;font-size:14px}
-.container{max-width:1100px;margin:0 auto;padding:10px}
-header{text-align:center;padding:14px 0 12px;border-bottom:1px solid #1a2340}
-header .brand-row{display:flex;align-items:center;justify-content:center;gap:12px}
-header .brand-logo{height:44px;width:auto}
-header h1{font-size:20px;color:#f1c40f;letter-spacing:2px}
-h1{font-size:22px;color:#f1c40f;letter-spacing:2px}
-.sub{color:#7f8fa6;font-size:11px;margin-top:4px}
-.lab-badge{display:inline-flex;align-items:center;gap:6px;margin-top:8px;padding:4px 10px;border-radius:999px;background:rgba(13,94,66,.25);border:1px solid rgba(0,210,255,.25)}
-.lab-badge img{height:18px;width:18px;border-radius:4px}
-.lab-badge span{font-size:10px;color:#9fe8d0;letter-spacing:.04em}
-.disclaimer{margin:8px 0 0;padding:8px 10px;border-radius:8px;background:#111827;border:1px solid #1e2d50;font-size:11px;color:#8a9bb5;line-height:1.5}
-footer.site-foot{margin-top:18px;padding:14px 0 8px;border-top:1px solid #1a2340;text-align:center}
-footer.site-foot .luxi{height:28px;opacity:.92}
-footer.site-foot p{margin-top:6px;font-size:10px;color:#5a6a8a}
-.tabs{display:flex;margin:8px 0;border-bottom:2px solid #1e2d50}
-.tab{flex:1;padding:8px;text-align:center;cursor:pointer;color:#5a6a8a;font-size:13px;border-bottom:2px solid transparent;transition:.2s;user-select:none}
-.tab:hover{color:#e0e6f0}
-.tab.active{color:#f1c40f;border-bottom-color:#f1c40f;font-weight:700}
-.tc{display:none}.tc.active{display:block}
-/* 顶栏 + 按钮卡 */
-.tr{display:flex;gap:6px;margin:6px 0}
-.tc2{flex:1;background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:8px;display:flex;flex-direction:column}
-.tl{font-size:9px;color:#7f8fa6;letter-spacing:1px}
-.tv{font-size:16px;font-weight:700;color:#f0f4ff;margin-top:2px}
-.ts{font-size:9px;color:#5a6a8a;margin-top:2px}
-.meter{height:4px;background:#1e2d50;border-radius:2px;margin-top:4px;overflow:hidden}
-.mf{height:100%;border-radius:2px;transition:width .5s}
-.btn{padding:6px 12px;background:linear-gradient(135deg,#f1c40f,#f39c12);border:none;border-radius:6px;color:#0a0e17;font-size:13px;font-weight:700;cursor:pointer;transition:.2s;align-self:center}
-.btn:hover{transform:scale(1.02)}
-.btn:disabled{opacity:.4;cursor:not-allowed}
-.prog{width:100%;height:12px;background:#1e2d50;border-radius:4px;overflow:hidden;margin-top:4px}
-.pf{height:100%;width:0%;background:linear-gradient(90deg,#2ecc71,#f1c40f,#e74c3c);transition:width .4s;font-size:8px;line-height:12px;text-align:center;color:#0a0e17;font-weight:700;border-radius:4px}
-.pl{font-size:10px;color:#7f8fa6;text-align:center;margin-top:2px}
-
-/* 推荐双列 */
-.pg{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3px;margin-top:6px}
-.pi{display:flex;align-items:center;background:#111827;border:1px solid #1e2d50;border-radius:6px;padding:4px 8px;gap:4px}
-.pn{font-size:10px;color:#f1c40f;font-weight:700;min-width:14px}
-.pb{display:flex;align-items:center;gap:1px;flex-wrap:wrap}
-.bl{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:9px;font-weight:700;background:#e74c3c;color:#fff}
-.cp2 .bl{width:19px;height:19px;font-size:8px}
-.bd{background:#3498db;border-radius:3px;padding:2px 4px;font-size:9px;margin-left:2px;color:#fff}
-.pm{font-size:9px;color:#7f8fa6;margin-left:auto;white-space:nowrap}
-/* 复式三列 */
-.cg{display:flex;flex-wrap:nowrap;gap:6px;margin-top:6px}
-.cc{background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:6px;flex:1;min-width:0}
-.ch{display:flex;justify-content:space-between;align-items:center}
-.cn{font-size:13px;font-weight:700;color:#f1c40f}
-.cd{font-size:9px;color:#5a6a8a}
-.cp2{display:flex;flex-wrap:nowrap;gap:2px;margin:3px 0;overflow-x:auto}
-.chp{display:inline-flex;padding:2px 5px;border-radius:6px;font-size:9px;font-weight:600}
-.cr{background:#3a1a1a;color:#e74c3c;border:1px solid #5a2a2a}
-.cb{background:#1a1a3a;color:#3498db;border:1px solid #2a2a5a}
-.cs{display:flex;justify-content:space-around;font-size:9px;color:#7f8fa6;border-top:1px solid #1e2d50;padding-top:4px;margin-top:3px}
-/* 步骤 */
-.sb{margin-top:6px;max-height:160px;overflow-y:auto}
-.sr{display:flex;align-items:center;padding:3px 6px;font-size:10px;gap:4px;border-bottom:1px solid #1a2340}
-.sn{color:#5a6a8a;min-width:14px}
-.sbl{width:14px;height:14px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:7px;color:#fff}
-.sba{flex:1;height:8px;background:#1e2d50;border-radius:2px;overflow:hidden}
-.sbf2{height:100%;border-radius:2px;transition:width .5s}
-.sp{color:#5a6a8a;min-width:28px;text-align:right;font-size:8px}
-
-/* 历史图表 — 连续柱状图 */
-.cw{overflow-x:auto;padding:6px 0}
-.cht{display:flex;align-items:flex-end;height:110px;width:100%;border-bottom:1px solid #1e2d50;padding-bottom:16px;position:relative}
-.bar-w{display:flex;flex-direction:column;align-items:center;flex:1;min-width:0}
-.bar2{width:100%;border-radius:1px 1px 0 0;min-height:3px;flex-shrink:0}
-.cl2{font-size:7px;color:#5a6a8a;text-align:center;margin-top:2px;white-space:nowrap}
-/* 折线图容器 */
-.line-chart{position:relative;height:110px;width:100%;overflow:hidden}
-.line-svg{width:100%;height:100%}
-
-/* 33+16网格——连续表格 */
-.zt{overflow-x:auto;margin-top:6px}
-.zt table{border-collapse:collapse;width:100%;font-size:7px}
-.zt th{background:#1a1a2a;color:#5a6a8a;font-weight:400;padding:2px 1px;text-align:center;border-bottom:1px solid #1e2d50;height:16px;font-size:7px}
-.zt td{text-align:center;padding:1px 1px;height:14px;width:2.5%;border:none;content-visibility:auto}
-.zt .hdr-red{color:#e74c3c;font-weight:700}
-.zt .hdr-blue{color:#3498db;font-weight:700}
-.cell-on{background:#e74c3c;color:#fff;border-radius:50%;font-weight:700;font-size:6px;display:inline-flex;width:12px;height:12px;align-items:center;justify-content:center}
-.cell-off{color:#2a2a4a;font-size:6px}
-.cell-b-on{background:#3498db;color:#fff;border-radius:50%;font-weight:700;font-size:6px;display:inline-flex;width:12px;height:12px;align-items:center;justify-content:center}
-.cell-b-off{color:#1a2a4a;font-size:6px}
-.zt .iss-col{color:#5a6a8a;text-align:right;padding-right:4px;width:30px;font-size:6px;border-right:1px solid #1e2d50}
-.zt .sep-col{width:4px;background:#1e2d50;padding:0}
-
-.card2{background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:10px;margin-bottom:8px}
-.ct{font-size:13px;color:#f0f4ff;margin-bottom:6px;font-weight:600}
-/* 三区概况 */
-.zs{display:flex;gap:10px;text-align:center}
-.zc{flex:1;background:#1a1a2a;border-radius:8px;padding:8px}
-.zv{font-size:20px;font-weight:700}
-.zl{font-size:10px;color:#7f8fa6}
-/* Regime网格居中 */
-.rg{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr;gap:6px}
-.rc{background:#111827;border:1px solid #1e2d50;border-radius:6px;padding:8px;text-align:center}
-.rv{font-size:18px;font-weight:700}
-.rl{font-size:11px;color:#7f8fa6}
-.rs{font-size:9px;color:#5a6a8a}
-.sn2{display:flex;justify-content:center;gap:1px;flex-wrap:wrap;margin:4px 0}
-.snm{display:inline-flex;width:22px;height:22px;border-radius:50%;align-items:center;justify-content:center;font-size:8px}
-.snr{background:#e74c3c;color:#fff}
-.snb{background:#3498db;color:#fff}
-
-h3{font-size:14px;color:#f0f4ff;margin:10px 0 6px}
-h3 small{font-size:10px;color:#5a6a8a;font-weight:400}
-footer{text-align:center;padding:14px 0;color:#3a4a6a;font-size:10px;border-top:1px solid #1a2340;margin-top:20px}
-.warn{color:#5a3a1a;font-size:10px;margin-top:4px}
-/* 预测对照：命中点亮（高对比内联为主，class 兜底） */
-.cmp-row{display:flex;flex-direction:column;gap:6px;padding:10px 8px;border-bottom:1px solid #1a2340}
-.cmp-meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px}
-.cmp-balls{display:flex;align-items:center;gap:5px;flex-wrap:wrap}
-.cmp-balls .lbl{color:#7f8fa6;font-size:12px;min-width:36px}
-.cmp-ball{
-  display:inline-flex;align-items:center;justify-content:center;
-  width:26px;height:26px;border-radius:50%;
-  font-size:12px;font-weight:800;line-height:1;
-  color:#fff;flex-shrink:0;
-  border:2px solid transparent;
-}
-.cmp-ball.red{background:#c0392b}
-.cmp-ball.blue{background:#2980b9}
-.cmp-ball.miss{opacity:.32;filter:grayscale(.35)}
-.cmp-ball.hit{
-  opacity:1!important;filter:none!important;
-  background:linear-gradient(145deg,#f1c40f,#e67e22)!important;
-  color:#1a1000!important;
-  border-color:#fff;
-  box-shadow:0 0 0 2px #f39c12,0 0 12px rgba(241,196,15,.95);
-  transform:scale(1.08);
-}
-.cmp-ball.hit.blue{
-  background:linear-gradient(145deg,#5dade2,#1a5276)!important;
-  color:#fff!important;
-  box-shadow:0 0 0 2px #3498db,0 0 12px rgba(52,152,219,.95);
-}
-.cmp-ball.cmp-lg{width:26px;height:26px;font-size:12px}
-.cmp-badge{font-size:11px;padding:2px 8px;border-radius:4px;white-space:nowrap}
-.cmp-badge.drawn{background:rgba(46,204,113,.2);color:#2ecc71;border:1px solid rgba(46,204,113,.45)}
-.cmp-badge.pending{background:rgba(149,165,166,.15);color:#95a5a6;border:1px solid #3a4a6a}
-::-webkit-scrollbar{width:3px}
-::-webkit-scrollbar-track{background:#0a0e17}
-::-webkit-scrollbar-thumb{background:#1e2d50;border-radius:2px}
-</style>
+<link rel="stylesheet" href="/static/tokens.css">
+<link rel="stylesheet" href="/static/style.css">
 </head>
 <body>
-<script>document.body.setAttribute('data-js','active')</script>
-<div class="container">
-<header style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 0">
-  <img src="/static/brand/favicon.svg" alt="" width="32" height="32" style="border-radius:8px;flex-shrink:0">
-  <div style="min-width:0">
-    <h1 style="font-size:18px;margin:0;color:#f1c40f;letter-spacing:1px">观澜 · GuanLan</h1>
-    <div class="sub" style="margin-top:2px;color:#f1c40f;opacity:.85">观水有术，由表及澜</div>
-    <div class="lab-badge" style="margin-top:3px">
-      <img src="/static/brand/luxi-lab-main.svg" alt="鹿溪联合创新实验室" style="height:22px;width:22px;object-fit:contain;border-radius:4px;background:#fff">
-      <span>鹿溪联合创新实验室 · LUXI Lab</span>
+<!-- 全局标准 SVG 符号库 (遵循 LUXI Design 规范) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <!-- 1. 实验室写实主标 (仅作官方资产备用库，不在 UI 顶栏/页脚中露出) -->
+  <symbol id="luxi-lab-mark" viewBox="0 0 2048 2048">
+    <path fill="#0D5E42" d="M864 794C988 781 1110 812 1208 891C1243 919 1280 963 1286 1009C1290 1031 1282 1045 1260 1050C1258 1001 1228 960 1192 929C930 704 479 884 458 1233C457 1253 456 1271 456 1291C457 1307 468 1304 479 1302C532 1282 541 1211 556 1162C595 1035 723 920 863 936C867 936 881 938 882 943C833 967 806 989 781 1016C731 1072 703 1144 702 1219C701 1310 737 1396 802 1460C922 1580 1096 1610 1256 1565C1348 1533 1391 1518 1483 1510C1545 1510 1622 1529 1666 1574C1626 1570 1598 1566 1557 1570C1482 1578 1426 1615 1359 1645C1308 1669 1242 1682 1186 1685C1051 1693 910 1653 810 1558C779 1529 757 1495 724 1466C677 1423 620 1392 557 1381C514 1406 525 1409 549 1412C578 1417 605 1426 631 1439C669 1458 710 1493 738 1524C766 1557 781 1574 814 1603C919 1686 1047 1722 1179 1717C1264 1709 1235 1731 1130 1762C969 1800 807 1777 666 1689C551 1617 463 1509 430 1376C402 1258 420 1128 485 1025C540 937 622 869 718 830L864 794Z"/>
+    <path fill="#00D2FF" d="M479 1302C532 1282 541 1211 556 1162C595 1035 723 920 863 936C833 967 806 989 781 1016C687 1026 605 1101 570 1187C552 1232 541 1292 484 1302Z"/>
+  </symbol>
+
+  <!-- 2. 实验室角本位符号标 (UI 统一规范标识 · 无方框) -->
+  <symbol id="luxi-symbol-mark" viewBox="0 0 48 48">
+    <path d="M23 24C22 15 16 9 8 8" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="butt"/>
+    <path d="M25 24C26 15 32 9 40 8" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="butt"/>
+    <path d="M24 22V39" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="butt"/>
+    <path d="M14 25H34" fill="none" stroke="var(--mark-accent, currentColor)" stroke-width="7" stroke-linecap="butt"/>
+  </symbol>
+
+  <!-- 3. 观澜产品业务图形 (12款方标官方定义：红蓝球，红左下、蓝右上) -->
+  <symbol id="guanlan-motif" viewBox="0 0 24 24">
+    <circle cx="9" cy="13" r="3.2" fill="#E74C3C"/>
+    <circle cx="15" cy="11" r="3.2" fill="#3498DB"/>
+  </symbol>
+
+  <!-- 4. 界面功能性 SVG 语义图标 (替代 Emoji) -->
+  <symbol id="icon-play" viewBox="0 0 24 24">
+    <polygon points="6 3 20 12 6 21 6 3" fill="currentColor"/>
+  </symbol>
+  <symbol id="icon-refresh" viewBox="0 0 24 24">
+    <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3L21.5 8M22 12.5a10 10 0 0 1-18.8 4.2L2.5 16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  </symbol>
+  <symbol id="icon-save" viewBox="0 0 24 24">
+    <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" fill="none" stroke="currentColor" stroke-width="2"/>
+    <polyline points="17 21 17 13 7 13 7 21" fill="none" stroke="currentColor" stroke-width="2"/>
+    <polyline points="7 3 7 8 15 8" fill="none" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="icon-copy" viewBox="0 0 24 24">
+    <rect x="9" y="9" width="13" height="13" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/>
+    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" fill="none" stroke="currentColor" stroke-width="2"/>
+  </symbol>
+  <symbol id="icon-chart" viewBox="0 0 24 24">
+    <line x1="18" y1="20" x2="18" y2="10" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <line x1="12" y1="20" x2="12" y2="4" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+    <line x1="6" y1="20" x2="6" y2="14" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-compare" viewBox="0 0 24 24">
+    <path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+  <symbol id="icon-dna" viewBox="0 0 24 24">
+    <path d="M2 15c6.667-6 13.333 0 20-6M2 9c6.667 6 13.333 0 20 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  </symbol>
+</svg>
+
+<!-- 顶栏 (Top Shell) -->
+<header class="top-shell">
+  <div class="top-nav">
+    <div class="brand-section">
+      <!-- 规范产品方标 (.brick 架构) -->
+      <div class="brick" title="观澜 · GuanLan 方标 (红蓝球 + 市场曲线)">
+        <svg aria-hidden="true"><use href="#guanlan-motif"></use></svg>
+        <span class="stream"></span><span class="star"></span>
+      </div>
+      <div class="brand-meta">
+        <div class="brand-title-row">
+          <span class="brand-name">观澜 · GuanLan</span>
+          <span class="brand-slogan">观水有术，由表及澜</span>
+        </div>
+        <div class="brand-lab-by">
+          <!-- 实验室角本位符号标（无方框，浅/深/金自适应） -->
+          <svg class="lab-symbol-icon" aria-label="鹿溪符号标"><use href="#luxi-symbol-mark"></use></svg>
+          <span>鹿溪联合创新实验室 · 理数·三思</span>
+        </div>
+      </div>
+    </div>
+    <div class="top-controls">
+      <select id="theme-select" class="select-control" aria-label="选择界面主题">
+        <option value="dark" selected>深色 · 数据</option>
+        <option value="light">亮色 · 工作台</option>
+        <option value="ink">沉浸 · 专注</option>
+      </select>
+      <select id="density-select" class="select-control" aria-label="选择界面密度">
+        <option value="comfortable" selected>舒适</option>
+        <option value="compact">紧凑</option>
+      </select>
     </div>
   </div>
-  <span class="sub" id="hi" style="font-size:10px;flex:1">加载中...<span id="vTag" style="display:none">v3</span></span>
-  <button class="btn" style="font-size:10px;padding:4px 8px" onclick="runFast()">▶ 快速</button>
-  <button class="btn" id="btn-evolve" style="font-size:10px;padding:4px 8px;background:linear-gradient(135deg,#9b59b6,#8e44ad)" onclick="runFull()" title="研究用自洽进化，非命中优化；默认关闭可用 env 开启">🧬全量(研究)</button>
-  <button class="btn" style="font-size:10px;padding:4px 8px;background:linear-gradient(135deg,#2ecc71,#27ae60)" onclick="updateData()">📥更新</button>
-  <button class="btn" style="font-size:10px;padding:4px 8px;background:linear-gradient(135deg,#e67e22,#d35400)" onclick="saveComparison()">💾保存</button>
-  <div class="prog" style="width:120px;height:10px;margin-left:4px"><div class="pf" id="pf"></div></div>
-  <span class="pl" id="pl" style="font-size:9px;color:#7f8fa6;min-width:60px">就绪</span>
 </header>
-<div class="disclaimer">本工具客观刻画奖池状态与组合拥挤度，红蓝球开奖接近真随机，一致性评分非中奖预言。</div>
-<div class="tabs">
-  <div class="tab active" onclick="sw('pred')">🔮 推理预测</div>
-  <div class="tab" onclick="sw('cmp')">📊 预测对照</div>
-</div>
-<div id="tp" class="tc active"></div>
-<div id="tcmp" class="tc"></div>
-<footer class="site-foot">
-  <img class="luxi" src="/static/brand/luxi-lab-main.svg" alt="鹿溪联合实验室 LUXI Lab" style="height:56px;width:auto;max-width:160px;object-fit:contain;background:#fff;border-radius:10px;padding:4px">
-  <p style="margin-top:8px;font-size:11px;color:#9fe8d0">鹿溪联合创新实验室 · LUXI Joint Innovation Lab</p>
-  <p>数据来源: 500.com · <span id="ft">就绪</span> · 观澜 · GuanLan · 鹿溪联合创新实验室
-  <script>document.getElementById('ft').textContent+=' JS_OK'</script></p>
-  <p class="warn">⚠ 本工具客观刻画奖池状态与组合拥挤度，红蓝球开奖接近真随机，一致性评分非中奖预言。</p>
-</footer></div>
+
+<main class="viewport">
+  <!-- 诚实原则声明横幅 (L-U-X-I Honesty Banner) -->
+  <div class="honesty-banner">
+    <div class="honesty-text">
+      <strong>方法边界说明：</strong>本系统客观刻画奖池状态与组合拥挤度，红蓝球开奖接近真随机，算法一致性评分非中奖预言。
+    </div>
+    <div class="data-status-badge" id="hi">
+      <span>正在连接数据服务...</span>
+    </div>
+  </div>
+
+  <!-- 全局行动条 (收敛按钮层级：每屏唯一鹿溪绿 Primary) -->
+  <div class="action-bar">
+    <!-- 主行动：唯一 Primary 按钮 -->
+    <button class="btn btn-primary" onclick="runFast()" title="执行快速推理验证">
+      <svg><use href="#icon-play"></use></svg>
+      <span>快速推理</span>
+    </button>
+    <!-- 次级行动：Secondary 按钮 -->
+    <button class="btn btn-secondary" id="btn-evolve" onclick="runFull()" title="自洽进化研究 (非命中承诺)">
+      <svg><use href="#icon-dna"></use></svg>
+      <span>全量研究</span>
+    </button>
+    <button class="btn btn-secondary" onclick="updateData()" title="拉取最新期次历史数据">
+      <svg><use href="#icon-refresh"></use></svg>
+      <span>更新数据</span>
+    </button>
+    <button class="btn btn-secondary" onclick="saveComparison()" title="保存当前推荐供对照校验">
+      <svg><use href="#icon-save"></use></svg>
+      <span>保存对照</span>
+    </button>
+
+    <!-- 运行状态与进度指示 -->
+    <div class="action-progress">
+      <div class="action-prog-bar"><div class="action-prog-fill" id="pf"></div></div>
+      <span class="action-prog-label" id="pl">就绪</span>
+    </div>
+  </div>
+
+  <!-- 标签页导航 (Tabs) -->
+  <nav class="nav-tabs" role="tablist">
+    <button class="nav-tab-btn active" role="tab" onclick="sw('pred')">
+      <svg><use href="#icon-chart"></use></svg>
+      <span>推理与市场分析</span>
+    </button>
+    <button class="nav-tab-btn" role="tab" onclick="sw('cmp')">
+      <svg><use href="#icon-compare"></use></svg>
+      <span>预测对照验证</span>
+    </button>
+  </nav>
+
+  <!-- 标签内容区 1：推理预测与市场大盘 -->
+  <div id="tp" class="tab-pane active"></div>
+
+  <!-- 标签内容区 2：预测对照验证 -->
+  <div id="tcmp" class="tab-pane"></div>
+
+  <!-- 页脚 (Foot Shell，遵循无写实主标、符号标纯粹化) -->
+  <footer class="site-foot">
+    <div class="foot-brand-row">
+      <svg style="width:20px;height:20px;color:var(--luxi-cyan);flex-shrink:0"><use href="#luxi-symbol-mark"></use></svg>
+      <span>鹿溪联合创新实验室 · LUXI Joint Innovation Lab</span>
+    </div>
+    <p class="foot-desc">
+      观澜（GuanLan）属于鹿溪「理数·三思」矩阵，专注于复杂组合结构与宏观状态推演。示例数据与推荐序列均属模型自洽排序，不构成任何投注指令或回报承诺。
+    </p>
+    <div style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);">
+      数据源: 500.com · <span id="ft">就绪</span> · 遵循 LUXI Design System
+    </div>
+  </footer>
+</main>
+
 <script>
-window.onerror=function(msg,url,line){document.getElementById('ft').textContent+=' ERR:'+msg+' L:'+line;return true;};
-let D=null,H=null,H_HTML='',CMP=null;
-async function get(u){let r=await fetch(u);return await r.json()}
-function sw(n){
-  document.querySelectorAll('.tab,.tc').forEach(e=>e.classList.remove('active'));
-  document.querySelector(`.tab[onclick*="${n}"]`).classList.add('active');
-  document.getElementById('t'+(n==='cmp'?'cmp':n[0])).classList.add('active');
-  if(n==='cmp')loadComparisonPage();
+window.onerror=function(msg,url,line){
+  let el=document.getElementById('ft');
+  if(el) el.textContent+=' ERR:'+msg+' L:'+line;
+  return true;
+};
+
+// ── 主题与密度控制 ──
+const htmlEl = document.documentElement;
+const themeSelect = document.getElementById("theme-select");
+const densitySelect = document.getElementById("density-select");
+
+if(themeSelect){
+  themeSelect.addEventListener("change", (e)=>{
+    htmlEl.setAttribute("data-theme", e.target.value);
+    localStorage.setItem("guanlan_theme", e.target.value);
+  });
+  let savedTheme = localStorage.getItem("guanlan_theme");
+  if(savedTheme){
+    themeSelect.value = savedTheme;
+    htmlEl.setAttribute("data-theme", savedTheme);
+  }
 }
+
+if(densitySelect){
+  densitySelect.addEventListener("change", (e)=>{
+    htmlEl.setAttribute("data-density", e.target.value);
+    localStorage.setItem("guanlan_density", e.target.value);
+  });
+  let savedDensity = localStorage.getItem("guanlan_density");
+  if(savedDensity){
+    densitySelect.value = savedDensity;
+    htmlEl.setAttribute("data-density", savedDensity);
+  }
+}
+
+let D=null, H=null, H_HTML='', CMP=null;
+async function get(u){ let r=await fetch(u); return await r.json(); }
+
+function sw(n){
+  document.querySelectorAll('.nav-tab-btn').forEach(e=>e.classList.remove('active'));
+  document.querySelectorAll('.tab-pane').forEach(e=>e.classList.remove('active'));
+  let clickedTab = document.querySelector(`.nav-tab-btn[onclick*="${n}"]`);
+  if(clickedTab) clickedTab.classList.add('active');
+  let targetPane = document.getElementById('t'+(n==='cmp'?'cmp':'p'));
+  if(targetPane) targetPane.classList.add('active');
+  if(n==='cmp') loadComparisonPage();
+}
+
 (async()=>{
   try{
     let s=await get('/api/status');
-    hi.textContent='第 '+s.data_version+' 期 · '+s.total_draws+' 期历史数据';
-    D=await get('/api/predict');render();rd(D);ft.textContent='已更新';
+    let hi=document.getElementById('hi');
+    if(hi){
+      hi.innerHTML='<span>第 <strong>'+s.data_version+'</strong> 期 · '+s.total_draws+' 期历史样本</span>';
+    }
+    D=await get('/api/predict');
+    render();
+    rd(D);
+    document.getElementById('ft').textContent='已连接';
     loadHistory();
-  }catch(e){console.error('Init error:',e);ft.textContent='初始化失败: '+e.message;}
+  }catch(e){
+    console.error('Init error:',e);
+    document.getElementById('ft').textContent='初始化异常: '+e.message;
+  }
 })();
-function $(i){return document.getElementById(i)}
-function sleep(m){return new Promise(r=>setTimeout(r,m))}
 
+function $(i){ return document.getElementById(i); }
+function sleep(m){ return new Promise(r=>setTimeout(r,m)); }
+
+// ── 渲染主界面 ──
 function render(){
-  let d=D,h='',pe=(d.market.pool/1e8).toFixed(2),be=(d.market.bet/1e8).toFixed(2);
-  let rC=d.market.regime==='放水'?'#e74c3c':d.market.regime==='平衡'?'#f39c12':'#3498db';
+  let d=D;
+  if(!d) return;
+  let pe=(d.market.pool/1e8).toFixed(2), be=(d.market.bet/1e8).toFixed(2);
+  let rC=d.market.regime==='放水'?'var(--alert-red)':d.market.regime==='平衡'?'var(--luxi-gold)':'var(--info-blue)';
   let rW=d.market.regime==='放水'?'80%':d.market.regime==='平衡'?'50%':'20%';
-  h+=`<div class="tr">
-    <div class="tc2"><div class="tl">市场状态</div><div class="tv" style="color:${rC}">${d.market.regime}</div>
-      <div class="meter"><div class="mf" style="width:${rW};background:${rC}"></div></div><div class="ts">蓄水←平衡→放水</div></div>
-    <div class="tc2"><div class="tl">奖池</div><div class="tv">${pe}<small style="font-size:11px;color:#7f8fa6">亿</small></div>
-      <div class="ts">预测${(d.market.predicted_pool_range[0]/1e8).toFixed(1)}~${(d.market.predicted_pool_range[1]/1e8).toFixed(1)}亿</div></div>
-    <div class="tc2"><div class="tl">投注总额</div><div class="tv">${be}<small style="font-size:11px;color:#7f8fa6">亿</small></div>
-      <div class="ts">${['崩溃态','蓄水态','大奖态','增长态','成熟态'][parseInt(d.market.regime_id)]||('Regime '+d.market.regime_id)}</div></div>
-    <div class="tc2"><div class="tl">热门号码</div><div class="tv" style="font-size:12px">${d.popularity.hot.slice(0,6).join(',')}</div>
-      <div class="ts">生日号效应 ${d.popularity.birthday_effect}x</div></div>
+
+  let h = '';
+  // 1. KPI 状态仪表卡片
+  h += `<div class="kpi-grid">
+    <div class="kpi-card">
+      <div class="kpi-label">市场状态</div>
+      <div class="kpi-value" style="color:${rC}">${d.market.regime}</div>
+      <div class="meter-track"><div class="meter-fill" style="width:${rW};background:${rC}"></div></div>
+      <div class="kpi-sub">蓄水 ← 平衡 → 放水</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">奖池规模</div>
+      <div class="kpi-value">${pe}<small>亿</small></div>
+      <div class="kpi-sub">预期区间 ${(d.market.predicted_pool_range[0]/1e8).toFixed(1)} ~ ${(d.market.predicted_pool_range[1]/1e8).toFixed(1)} 亿</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">当期投注估计</div>
+      <div class="kpi-value">${be}<small>亿</small></div>
+      <div class="kpi-sub">${['崩溃态','蓄水态','大奖态','增长态','成熟态'][parseInt(d.market.regime_id)]||('Regime '+d.market.regime_id)}</div>
+    </div>
+    <div class="kpi-card">
+      <div class="kpi-label">热门特征</div>
+      <div class="kpi-value" style="font-size:15px;letter-spacing:1px">${d.popularity.hot.slice(0,6).join(', ')}</div>
+      <div class="kpi-sub">生日效应权重 ${d.popularity.birthday_effect}x</div>
+    </div>
   </div>`;
-  let allP=[...d.predictions],rCnt={},bCnt={};
-  d.predictions.forEach(p=>{p.reds.forEach(r=>{rCnt[r]=(rCnt[r]||0)+1});bCnt[p.blue]=(bCnt[p.blue]||0)+1});
+
+  // 2. 推荐号码列表
+  let allP=[...d.predictions], rCnt={}, bCnt={};
+  d.predictions.forEach(p=>{
+    p.reds.forEach(r=>{ rCnt[r]=(rCnt[r]||0)+1; });
+    bCnt[p.blue]=(bCnt[p.blue]||0)+1;
+  });
   let sortedR=Object.entries(rCnt).sort((a,b)=>b[1]-a[1]);
   let topR=sortedR.slice(0,6).map(e=>parseInt(e[0])).sort((a,b)=>a-b);
   let r2=sortedR.slice(6,12).map(e=>parseInt(e[0])).sort((a,b)=>a-b);
   let topB=parseInt(Object.entries(bCnt).sort((a,b)=>b[1]-a[1])[0][0]);
   let topB2=parseInt(Object.entries(bCnt).sort((a,b)=>b[1]-a[1])[1][0])||topB;
-  allP.push({rank:11,reds:topR,blue:topB,consistency:0.30,cost:0,est_prize1:5});
-  allP.push({rank:12,reds:r2,blue:topB2,consistency:0.30,cost:0,est_prize1:5});
-  // 指标图例（置于标题说明之后，【】包裹）
-  let metricLegend='【🛡️抗拥挤 · 📐结构 · 📈市场 · 🏁综合final · ⭐自洽 · 💰成本 · 🎯估头奖注数 · 均非中奖概率】';
-  h+=`<h3>推荐号码 <small>第1-10注基于全验证池双向验证 · 第11-12注为top10频率聚合 ${metricLegend}</small>
-    <button onclick="copyNumbers()" style="font-size:9px;padding:2px 8px;border:1px solid #5a6a8a;background:#1a1a2a;color:#7f8fa6;border-radius:4px;cursor:pointer;margin-left:6px">📋复制</button>
-  </h3><div class="pg">`;
+  allP.push({rank:11, reds:topR, blue:topB, consistency:0.30, cost:0, est_prize1:5});
+  allP.push({rank:12, reds:r2, blue:topB2, consistency:0.30, cost:0, est_prize1:5});
+
+  h += `<div class="section-title-bar">
+    <div class="section-title">
+      <span>序列推荐</span>
+      <span class="section-desc">1-10注基于双向验证 · 11-12注为频次聚合 (评分非中奖概率)</span>
+    </div>
+    <button class="btn btn-secondary" onclick="copyNumbers()" style="height:26px;padding:0 8px;font-size:11px">
+      <svg><use href="#icon-copy"></use></svg>
+      <span>复制序列</span>
+    </button>
+  </div>`;
+
+  h += `<div class="pred-grid">`;
   allP.forEach(p=>{
-    let rb=p.reds.map(r=>`<span class="bl">${String(r).padStart(2,'0')}</span>`).join('');
+    let rb=p.reds.map(r=>`<span class="ball ball-red">${String(r).padStart(2,'0')}</span>`).join('');
+    let bb=`<span class="ball ball-blue">${String(p.blue).padStart(2,'0')}</span>`;
     let sc=p.scores;
-    let meta;
+    let isAgg = p.rank >= 11;
+    let seqBadge = isAgg ? '频次聚合' : '双向验证';
+    let finalScore = sc ? (sc.final*100).toFixed(0) : '—';
+    let cardHeader = `
+      <div class="pred-card-header">
+        <div class="pred-seq-badge">
+          <span class="pred-seq-num">#${String(p.rank).padStart(2,'0')}</span>
+          <span class="pred-type-label">${seqBadge}</span>
+        </div>
+        ${sc ? `<div class="pred-final-score">综合评分 <strong>${finalScore}</strong></div>` : `<div class="pred-final-score" style="color:var(--text-muted)">聚合推荐</div>`}
+      </div>
+    `;
+
+    let ballText = p.reds.map(r=>String(r).padStart(2,'0')).join(',') + ' + ' + String(p.blue).padStart(2,'0');
+    let ballsTrack = `
+      <div class="pred-balls-track">
+        <div class="pred-balls-group">
+          ${rb}
+          <span class="ball-divider"></span>
+          ${bb}
+        </div>
+        <button class="btn-copy-single" onclick="copySingle('${ballText}')" title="复制此单注号码">
+          <svg style="width:12px;height:12px"><use href="#icon-copy"></use></svg>
+          <span>单注</span>
+        </button>
+      </div>
+    `;
+
+    let metricsRow;
     if(sc){
-      // multi：仅图标 + 数值
-      meta=`🛡️${(sc.anti_crowd*100).toFixed(0)} 📐${(sc.structure*100).toFixed(0)} 📈${(sc.market_fit*100).toFixed(0)} · 🏁${(sc.final*100).toFixed(0)} · ⭐${(p.consistency*100).toFixed(0)}%`;
+      metricsRow = `
+        <div class="pred-metrics-row">
+          <div class="metric-chip">
+            <span class="metric-chip-title">抗拥挤度</span>
+            <span class="metric-chip-val">${(sc.anti_crowd*100).toFixed(0)}</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-chip-title">组合结构</span>
+            <span class="metric-chip-val">${(sc.structure*100).toFixed(0)}</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-chip-title">市场匹配</span>
+            <span class="metric-chip-val">${(sc.market_fit*100).toFixed(0)}</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-chip-title">模型自洽</span>
+            <span class="metric-chip-val" style="color:var(--text-warn)">${(p.consistency*100).toFixed(0)}%</span>
+          </div>
+        </div>
+      `;
     }else{
-      // legacy / 11-12注频率聚合
       let cost=(p.cost!=null&&!isNaN(p.cost))?Number(p.cost).toFixed(1):'0.0';
-      let est=(p.est_prize1!=null)?p.est_prize1:0;
-      meta=`⭐${(p.consistency*100).toFixed(0)}% 💰${cost} 🎯${est}注`;
+      metricsRow = `
+        <div class="pred-metrics-row">
+          <div class="metric-chip">
+            <span class="metric-chip-title">模型自洽</span>
+            <span class="metric-chip-val" style="color:var(--text-warn)">${(p.consistency*100).toFixed(0)}%</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-chip-title">模拟成本</span>
+            <span class="metric-chip-val">${cost}</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-chip-title">预估注数</span>
+            <span class="metric-chip-val">${p.est_prize1||0} 注</span>
+          </div>
+          <div class="metric-chip">
+            <span class="metric-chip-title">来源方式</span>
+            <span class="metric-chip-val" style="font-size:11px">Top10 频次</span>
+          </div>
+        </div>
+      `;
     }
-    h+=`<div class="pi"><span class="pn">#${p.rank}</span>
-      <span class="pb">${rb}<span class="bl" style="background:#3498db">${String(p.blue).padStart(2,'0')}</span></span>
-      <span class="pm" title="指标含义见标题【】内说明；均非中奖概率">${meta}</span></div>`;
+
+    h += `<div class="pred-card">
+      ${cardHeader}
+      ${ballsTrack}
+      ${metricsRow}
+    </div>`;
   });
-  h+=`</div>`;
-  h+=`<h3>复式推荐 <small>基于全验证池贪心加权</small></h3><div class="cg">`;
-  D.compound_plans.forEach(c=>{
-    let allBalls=c.reds.map(r=>`<span class="bl">${String(r).padStart(2,'0')}</span>`).concat(c.blues.map(b=>`<span class="bl" style="background:#3498db">${String(b).padStart(2,'0')}</span>`)).join('');
-    h+=`<div class="cc"><div class="ch"><span class="cn">${c.tier_name}</span><span class="cd">${c.tier_desc}</span></div>
-      <div class="cp2">${allBalls}</div>
-      <div class="cs"><span>💰${c.total_cost}元</span><span>🎯${c.total_combos}注</span>
-      <span>📊${(c.avg_match_rate*100).toFixed(1)}%</span><span>⭐${(c.consistency*100).toFixed(0)}%</span></div></div>`;
+  h += `</div>`;
+
+  // 3. 复式推荐
+  h += `<div class="section-title-bar">
+    <div class="section-title">
+      <span>复式规划方案</span>
+      <span class="section-desc">基于全验证池贪心加权</span>
+    </div>
+  </div>
+  <div class="compound-grid">`;
+  d.compound_plans.forEach(c=>{
+    let rBalls = c.reds.map(r=>`<span class="ball ball-red ball-sm">${String(r).padStart(2,'0')}</span>`).join('');
+    let bBalls = c.blues.map(b=>`<span class="ball ball-blue ball-sm">${String(b).padStart(2,'0')}</span>`).join('');
+    h += `<div class="compound-card">
+      <div class="compound-header">
+        <span class="compound-tier">${c.tier_name}</span>
+        <span class="compound-desc">${c.tier_desc}</span>
+      </div>
+      <div class="compound-balls-row">${rBalls}${bBalls}</div>
+      <div class="compound-stats">
+        <span>成本 <strong>${c.total_cost}</strong> 元</span>
+        <span>组合 <strong>${c.total_combos}</strong> 注</span>
+        <span>均值 <strong>${(c.avg_match_rate*100).toFixed(1)}%</strong></span>
+        <span>自洽 <strong>${(c.consistency*100).toFixed(0)}%</strong></span>
+      </div>
+    </div>`;
   });
-  h+=`</div>`;
-  // 复式构建步骤
-  if(D&&D.compound_plans&&D.compound_plans[0]&&D.compound_plans[0].build_steps){
-    h+=`<div id="sx"><h3>复式构建步骤 <small>贪心扩展轨迹</small></h3><div class="sb" id="sl"></div></div>`;
-  }else{
-    h+=`<div id="sx" style="display:none"><h3>复式构建步骤 <small>贪心扩展轨迹</small></h3><div class="sb" id="sl"></div></div>`;
-  }
-  h+=`<div id="history-section"></div>`;
-  tp.innerHTML=h;
-  // 如果有构建步骤数据，立即渲染
-  if(D&&D.compound_plans&&D.compound_plans[0]&&D.compound_plans[0].build_steps)rd(D);
+  h += `</div>`;
+
+  // 复式构建步骤轨迹
+  h += `<div id="sx" style="display:none;margin-bottom:16px;">
+    <div class="card">
+      <div class="card-header"><h4 class="card-title">复式贪心构建轨迹</h4></div>
+      <div id="sl" style="max-height:160px;overflow-y:auto"></div>
+    </div>
+  </div>`;
+
+  // 历史图表插入容器
+  h += `<div id="history-section"></div>`;
+
+  document.getElementById('tp').innerHTML = h;
+  if(d.compound_plans&&d.compound_plans[0]&&d.compound_plans[0].build_steps) rd(d);
 }
 
 function modeQS(){
-  // multi：cutover go 后服务端默认 multi；本地可 window.SSQ_MODE 覆盖
   let m=window.SSQ_MODE||'';
   return m?('&mode='+encodeURIComponent(m)):'';
 }
+
 let SYS={evolution_mode:'off',scoring_mode:'legacy'};
 async function refreshStatus(){
   try{
@@ -290,178 +438,215 @@ async function refreshStatus(){
     let be=document.getElementById('btn-evolve');
     if(be){
       if(SYS.evolution_mode==='off'){
-        be.disabled=true;be.title='进化默认关闭(EVOLUTION_MODE=off)。设置 SSQ_EVOLUTION_MODE=legacy_consistency 后重启可开。';
-        be.style.opacity='0.45';
+        be.disabled=true;
+        be.title='全量进化处于禁用状态 (EVOLUTION_MODE=off)。研究环境配置 SSQ_EVOLUTION_MODE=legacy_consistency 后重启即可开启。';
       }else{
-        be.disabled=false;be.style.opacity='1';
+        be.disabled=false;
       }
     }
     let hi=document.getElementById('hi');
     if(hi&&SYS.data_version){
-      hi.innerHTML='数据 '+SYS.data_version+(SYS.latest_date?(' · '+SYS.latest_date):'')
-        +' · 评分 '+SYS.scoring_mode+(SYS.scoring_experimental_gate?'(闸)':'')
-        +' · 进化 '+SYS.evolution_mode
-        +' <span id="vTag" style="display:none">v6</span>';
+      hi.innerHTML='<span>数据 <strong>'+SYS.data_version+'</strong>'+(SYS.latest_date?(' · '+SYS.latest_date):'')
+        +' · 评分模式 '+SYS.scoring_mode+(SYS.scoring_experimental_gate?' [门禁]':'')
+        +' · 进化状态 '+SYS.evolution_mode+'</span>';
     }
   }catch(e){}
 }
 refreshStatus();
+
+// 快速运行
 async function runFast(){
-  let pf=$('pf'),pl=$('pl');pf.style.width='10%';pl.textContent='采样候选...';
-  await sleep(300);pf.style.width='30%';pl.textContent='双向验证...';await sleep(300);
-  pf.style.width='55%';pl.textContent='复式规划...';D=await get('/api/predict/run?evolve=false'+modeQS());
-  pf.style.width='80%';pl.textContent='生成报告...';await sleep(300);render();rd(D);
-  // 恢复历史内容
-  loadHistory();
-  pf.style.width='100%';pl.textContent='完成';await sleep(600);pf.style.width='0%';pl.textContent='就绪';
+  let pf=$('pf'), pl=$('pl');
+  pf.style.width='15%'; pl.textContent='采样验证...';
+  await sleep(250);
+  pf.style.width='45%'; pl.textContent='双向验证...';
+  await sleep(250);
+  pf.style.width='75%'; pl.textContent='规划计算...';
+  D=await get('/api/predict/run?evolve=false'+modeQS());
+  pf.style.width='90%'; pl.textContent='渲染视图...';
+  await sleep(200);
+  render(); rd(D); loadHistory();
+  pf.style.width='100%'; pl.textContent='完成';
+  await sleep(500);
+  pf.style.width='0%'; pl.textContent='就绪';
 }
 
-// 全量推理弹窗 + 实时进度
+// 全量进化研究弹窗
 function runFull(){
   if(SYS.evolution_mode==='off'){
-    alert('全量进化默认已关闭（EVOLUTION_MODE=off）。\n研究用途请设置环境变量 SSQ_EVOLUTION_MODE=legacy_consistency 后重启服务。\n注意：自洽进化≠命中优化。');
+    alert('全量进化默认处于安全关闭状态（EVOLUTION_MODE=off）。\n研究用途请在服务启动前设置环境变量 SSQ_EVOLUTION_MODE=legacy_consistency。\n注意：此过程系参数自洽搜索，不属于命中概率优化。');
     return;
   }
-  // 创建弹窗
   let modal=document.createElement('div');
   modal.id='evoModal';
-  modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.8);z-index:999;display:flex;align-items:center;justify-content:center';
-  modal.innerHTML=`<div style="background:#111827;border:1px solid #f1c40f;border-radius:12px;padding:24px;width:400px;max-width:90%">
-    <h3 style="color:#f1c40f;margin-bottom:12px">🧬 全量遗传进化</h3>
-    <div style="height:12px;background:#1e2d50;border-radius:6px;overflow:hidden;margin-bottom:8px">
-      <div id="evoBar" style="height:100%;width:0%;background:linear-gradient(90deg,#2ecc71,#f1c40f,#e74c3c);border-radius:6px;transition:width .5s"></div>
+  modal.style.cssText='position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(4px);';
+  modal.innerHTML=`<div style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:12px;padding:24px;width:420px;max-width:90%;box-shadow:var(--shadow-lg)">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
+      <svg style="width:18px;height:18px;color:var(--luxi-green)"><use href="#icon-dna"></use></svg>
+      <h3 style="font-size:16px;margin:0;color:var(--text-primary)">全量自洽遗传进化</h3>
     </div>
-    <div id="evoMsg" style="font-size:12px;color:#7f8fa6;margin-bottom:12px;text-align:center">初始化...</div>
-    <div id="evoLog" style="font-size:10px;color:#5a6a8a;max-height:200px;overflow-y:auto;border-top:1px solid #1e2d50;padding-top:8px"></div>
-    <button id="evoClose" style="display:none;margin-top:12px;padding:6px 20px;background:#f1c40f;border:none;border-radius:6px;color:#0a0e17;font-weight:700;cursor:pointer" onclick="document.body.removeChild(document.getElementById('evoModal'))">关闭</button>
+    <div class="meter-track" style="height:8px;margin-bottom:8px">
+      <div id="evoBar" class="meter-fill" style="width:0%;background:var(--color-primary)"></div>
+    </div>
+    <div id="evoMsg" style="font-size:12px;color:var(--text-secondary);margin-bottom:12px;text-align:center">正在初始化种群...</div>
+    <div id="evoLog" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono);max-height:180px;overflow-y:auto;border-top:1px solid var(--border-line);padding-top:8px"></div>
+    <div style="text-align:right;margin-top:16px">
+      <button id="evoClose" class="btn btn-primary" style="display:none" onclick="document.body.removeChild(document.getElementById('evoModal'))">完成并关闭</button>
+    </div>
   </div>`;
   document.body.appendChild(modal);
 
-  // 启动全量推理
-  let pf=$('pf'),pl=$('pl');pf.style.width='2%';pl.textContent='全量进化中...';
-  fetch('/api/predict/run?evolve=true'+modeQS()).then(r=>r.json()).then(d=>{D=d;render();rd(D);
-    loadHistory();
-    pf.style.width='100%';pl.textContent='完成';let cb=document.getElementById('evoClose');if(cb){cb.style.display='block';}let eb=document.getElementById('evoBar');if(eb)eb.style.width='100%';let em=document.getElementById('evoMsg');if(em)em.textContent='✅ 进化完成';setTimeout(()=>{pf.style.width='0%';pl.textContent='就绪';},600);});
+  let pf=$('pf'), pl=$('pl');
+  pf.style.width='10%'; pl.textContent='进化计算中...';
+  fetch('/api/predict/run?evolve=true'+modeQS()).then(r=>r.json()).then(d=>{
+    D=d; render(); rd(D); loadHistory();
+    pf.style.width='100%'; pl.textContent='完成';
+    let cb=$('evoClose'); if(cb) cb.style.display='inline-flex';
+    let eb=$('evoBar'); if(eb) eb.style.width='100%';
+    let em=$('evoMsg'); if(em) em.textContent='进化计算完成';
+    setTimeout(()=>{ pf.style.width='0%'; pl.textContent='就绪'; }, 600);
+  });
 
-  // 轮询进度
-  let logCnt=0;
   let poll=setInterval(async()=>{
     try{
       let p=await(await fetch('/api/predict/progress')).json();
-      let eb=document.getElementById('evoBar'),em=document.getElementById('evoMsg'),el=document.getElementById('evoLog');
-      if(eb)eb.style.width=p.progress+'%';
-      if(em)em.textContent=p.message||'进化中...';
+      let eb=$('evoBar'), em=$('evoMsg'), el=$('evoLog');
+      if(eb) eb.style.width=p.progress+'%';
+      if(em) em.textContent=p.message||'计算中...';
       if(el&&p.message&&p.message!==el.lastChild?.textContent){
-        let d=document.createElement('div');d.textContent=p.message;el.appendChild(d);el.scrollTop=el.scrollHeight;
+        let d=document.createElement('div'); d.textContent=p.message; el.appendChild(d); el.scrollTop=el.scrollHeight;
       }
-      if(!p.running){clearInterval(poll);pf.style.width='0%';pl.textContent='就绪';}
+      if(!p.running){ clearInterval(poll); pf.style.width='0%'; pl.textContent='就绪'; }
     }catch(e){}
-  },2000);
+  }, 2000);
 }
 
+// 数据更新
 async function updateData(){
-  let pf=$('pf'),pl=$('pl');
-  pf.style.width='10%';pl.textContent='爬取+预测更新中...';
+  let pf=$('pf'), pl=$('pl');
+  pf.style.width='20%'; pl.textContent='拉取公告与数据更新...';
   let r=await get('/api/update');
   let ds=r.data_stats||{};
-  let info=r.success
-    ? ('最新'+(r.latest_issue||'')+' (+'+(ds.added||0)+'期)')
-    : ('失败: '+(r.error||''));
-  pf.style.width='50%';pl.textContent=info;
+  let info=r.success ? ('更新完成 (最新 '+r.latest_issue+' 期，新增 '+ (ds.added||0) +' 期)') : ('更新失败: '+(r.error||''));
+  pf.style.width='60%'; pl.textContent=info;
   if(r.success){
-    // /api/update 已完成预测落盘，直接拉取结果
-    D=await get('/api/predict');render();rd(D);
-    pf.style.width='75%';pl.textContent='刷新图表...';
-    H=null;loadHistory();
+    D=await get('/api/predict'); render(); rd(D);
+    H=null; loadHistory();
   }
-  pf.style.width='100%';pl.textContent=r.success?'完成 '+info:'失败';
-  await sleep(1500);pf.style.width='0%';pl.textContent='就绪';
+  pf.style.width='100%'; pl.textContent='完成';
+  await sleep(1000);
+  pf.style.width='0%'; pl.textContent='就绪';
 }
 
+// 复制号码
 function copyNumbers(){
-  if(!D||!D.predictions)return;
-  let txt='双色球推荐号码 ('+D.current_issue+'期)\n'+'='.repeat(30)+'\n';
-  txt+='【🛡️抗拥挤 · 📐结构 · 📈市场 · 🏁综合final · ⭐自洽 · 💰成本 · 🎯估头奖注数】\n';
+  if(!D||!D.predictions) return;
+  let txt='观澜 · 双色球结构推演推荐 (第 '+D.current_issue+' 期)\n'+'='.repeat(36)+'\n';
+  txt+='指标口径: [抗拥挤度 / 组合结构 / 市场匹配 / 综合final / 模型自洽度]\n';
   D.predictions.forEach(function(p){
-    let reds=p.reds.map(function(n){return String(n).padStart(2,'0')}).join(',');
-    let line='#'+p.rank+' '+reds+'+'+String(p.blue).padStart(2,'0')+'  ';
+    let reds=p.reds.map(n=>String(n).padStart(2,'0')).join(',');
+    let line='#'+p.rank+'  '+reds+' + '+String(p.blue).padStart(2,'0')+'  ';
     if(p.scores){
       let sc=p.scores;
-      line+='🛡️'+(sc.anti_crowd*100).toFixed(0)+' 📐'+(sc.structure*100).toFixed(0)+' 📈'+(sc.market_fit*100).toFixed(0)+' 🏁'+(sc.final*100).toFixed(0)+' ⭐'+(p.consistency*100).toFixed(0)+'%';
+      line+='[抗拥:'+(sc.anti_crowd*100).toFixed(0)+' 结构:'+(sc.structure*100).toFixed(0)+' 市场:'+(sc.market_fit*100).toFixed(0)+' 综合:'+(sc.final*100).toFixed(0)+' 自洽:'+(p.consistency*100).toFixed(0)+'%]';
     }else{
-      line+='⭐'+(p.consistency*100).toFixed(0)+'% 💰'+(p.cost!=null?Number(p.cost).toFixed(1):'0')+' 🎯'+(p.est_prize1||0)+'注';
+      line+='[自洽:'+(p.consistency*100).toFixed(0)+'% 成本:'+(p.cost!=null?Number(p.cost).toFixed(1):'0')+' 估注:'+(p.est_prize1||0)+']';
     }
     txt+=line+'\n';
   });
-  // 复式
   if(D.compound_plans){
-    txt+='\n复式:\n';
+    txt+='\n复式方案:\n';
     D.compound_plans.forEach(function(c){
-      txt+=c.tier_name+': '+c.reds.join(',')+' + '+c.blues.join(',')+'  '+c.total_cost+'元\n';
+      txt+=c.tier_name+' ('+c.tier_desc+'): 红['+c.reds.join(',')+'] + 蓝['+c.blues.join(',')+']  成本:'+c.total_cost+'元\n';
     });
   }
   if(navigator.clipboard&&navigator.clipboard.writeText){
-    navigator.clipboard.writeText(txt).then(function(){
-      let btn=event&&event.target;if(btn){btn.textContent='✅已复制';setTimeout(function(){btn.textContent='📋复制';},2000);}
-    }).catch(function(){});
+    navigator.clipboard.writeText(txt).then(()=>{
+      alert('已复制全量推荐号码与指标口径至剪贴板');
+    });
   }else{
-    // fallback
-    let ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);
+    let ta=document.createElement('textarea'); ta.value=txt; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    alert('已复制全量推荐号码与指标口径至剪贴板');
   }
 }
 
-async function saveComparison(){
-  let pf=$('pf'),pl=$('pl');
-  pf.style.width='20%';pl.textContent='保存预测...';
-  let data={target_issue:D.current_issue,predictions:D.predictions,compound_plans:D.compound_plans};
-  let r=await fetch('/api/predict/save',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)}).then(r=>r.json());
-  pf.style.width='60%';pl.textContent='已保存 '+r.saved+' 注';
-  // 刷新对照页数据
-  CMP=null;
-  if(document.getElementById('tcmp').classList.contains('active'))loadComparisonPage();
-  pf.style.width='100%';pl.textContent='完成';
-  await sleep(800);pf.style.width='0%';pl.textContent='就绪';
+// 复制单注号码
+function copySingle(ballText){
+  if(navigator.clipboard&&navigator.clipboard.writeText){
+    navigator.clipboard.writeText(ballText).then(()=>{
+      alert('已复制单注: ' + ballText);
+    });
+  }else{
+    let ta=document.createElement('textarea'); ta.value=ballText; document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
+    alert('已复制单注: ' + ballText);
+  }
 }
 
+// 保存对照
+async function saveComparison(){
+  let pf=$('pf'), pl=$('pl');
+  pf.style.width='30%'; pl.textContent='保存快照...';
+  let data={target_issue:D.current_issue, predictions:D.predictions, compound_plans:D.compound_plans};
+  let r=await fetch('/api/predict/save', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(data)
+  }).then(res=>res.json());
+  pf.style.width='80%'; pl.textContent='已保存 '+r.saved+' 注推演记录';
+  CMP=null;
+  if(document.getElementById('tcmp').classList.contains('active')) loadComparisonPage();
+  pf.style.width='100%'; pl.textContent='完成';
+  await sleep(600);
+  pf.style.width='0%'; pl.textContent='就绪';
+}
+
+// ── 预测对照页 ──
 async function loadComparisonPage(force){
-  // 每次进入对照页默认强制拉取，确保历史命中/点亮与开奖同步（无需再点保存）
   try{
     if(force!==false) CMP=null;
     if(!CMP){
       CMP=await get('/api/predict/comparison?backfill=1&_t='+Date.now());
     }
-    if(!Array.isArray(CMP))CMP=[];
-  }catch(e){CMP=[];console.error('cmp load error:',e);}
-  let h=`<h3 style="display:flex;align-items:center;flex-wrap:wrap;gap:8px">
-    <span>预测对照 <small>命中分析 · 已开奖自动点亮 · 未开奖不点亮</small></span>
-    <button type="button" class="btn" style="font-size:10px;padding:3px 8px;background:#1e2d50;color:#e0e6f0;margin:0"
-      onclick="loadComparisonPage(true)">↻ 刷新命中</button>
-  </h3>`;
-  let issues=[];let batches=[];
+    if(!Array.isArray(CMP)) CMP=[];
+  }catch(e){ CMP=[]; console.error('cmp load error:',e); }
+
+  let h = `<div class="section-title-bar">
+    <div class="section-title">
+      <span>推演对照校验</span>
+      <span class="section-desc">开奖结果自动点亮 · 校验模型空间偏离</span>
+    </div>
+    <button class="btn btn-secondary" onclick="loadComparisonPage(true)" style="height:26px;padding:0 8px;font-size:11px">
+      <svg><use href="#icon-refresh"></use></svg>
+      <span>刷新命中状态</span>
+    </button>
+  </div>`;
+
+  let issues=[], batches=[];
   try{
     issues=[...new Set(CMP.filter(c=>c&&c.target_issue).map(c=>c.target_issue))].sort().reverse();
-    batches=CMP.filter(c=>c&&c.batch_id).map(c=>({id:c.batch_id,issue:c.target_issue})).filter((v,i,a)=>a.findIndex(t=>t.id===v.id)===i).sort((a,b)=>b.id-a.id);
+    batches=CMP.filter(c=>c&&c.batch_id).map(c=>({id:c.batch_id, issue:c.target_issue})).filter((v,i,a)=>a.findIndex(t=>t.id===v.id)===i).sort((a,b)=>b.id-a.id);
   }catch(e){}
+
   let tcmpDiv=document.getElementById('tcmp');
-  if(!tcmpDiv)return;
-  h+=`<div style="display:flex;gap:8px;margin-bottom:10px">
-    <select id="cmp-issue" style="flex:1;background:#1e2d50;color:#e0e6f0;border:1px solid #2a3a6a;border-radius:4px;padding:4px" onchange="filterComparison()">
-      <option value="">全部期次</option>${issues.map(i=>'<option value="'+i+'">'+i+'</option>').join('')}
+  if(!tcmpDiv) return;
+
+  h += `<div style="display:flex;gap:8px;margin-bottom:12px;max-width:480px">
+    <select id="cmp-issue" class="select-control" style="flex:1" onchange="filterComparison()">
+      <option value="">全部推演期次</option>${issues.map(i=>'<option value="'+i+'">第 '+i+' 期</option>').join('')}
     </select>
-    <select id="cmp-batch" style="flex:1;background:#1e2d50;color:#e0e6f0;border:1px solid #2a3a6a;border-radius:4px;padding:4px" onchange="filterComparison()">
-      <option value="">全部批次</option>${batches.map(b=>'<option value="'+b.id+'">#'+b.id+' ('+b.issue+')</option>').join('')}
+    <select id="cmp-batch" class="select-control" style="flex:1" onchange="filterComparison()">
+      <option value="">全部计算批次</option>${batches.map(b=>'<option value="'+b.id+'">批次 #'+b.id+' ('+b.issue+')</option>').join('')}
     </select>
-  </div>`;
-  h+='<div id="cmp-results" style="font-size:13px;max-height:70vh;overflow-y:auto">';
-  if(CMP.length===0)h+='<div style="color:#5a6a8a;padding:10px;text-align:center">暂无保存记录，先点击 💾保存</div>';
-  h+='</div>';
+  </div>
+  <div id="cmp-results" class="card" style="padding:0;max-height:70vh;overflow-y:auto"></div>`;
+
   tcmpDiv.innerHTML=h;
-  if(CMP.length>0)filterComparison();
+  filterComparison();
 }
 
 function _cmpParseReds(c){
   if(Array.isArray(c.reds)) return c.reds.map(Number).filter(n=>!isNaN(n)&&n>0);
-  try{return JSON.parse(c.reds||'[]').map(Number).filter(n=>!isNaN(n)&&n>0);}catch(e){return [];}
+  try{ return JSON.parse(c.reds||'[]').map(Number).filter(n=>!isNaN(n)&&n>0); }catch(e){ return []; }
 }
 function _cmpParseBlues(c){
   if(Array.isArray(c.blues)&&c.blues.length) return c.blues.map(Number).filter(n=>!isNaN(n)&&n>0);
@@ -472,109 +657,117 @@ function _cmpParseBlues(c){
     if(Array.isArray(v)) return v.map(Number).filter(n=>!isNaN(n)&&n>0);
     let n=Number(v); return isNaN(n)?[]:[n];
   }catch(e){
-    let n=Number(c.blue);
-    return isNaN(n)?[]:[n];
+    let n=Number(c.blue); return isNaN(n)?[]:[n];
   }
 }
-/** 对照页专用球：大号 + 命中金亮 / 未中变暗（样式全内联，避免被 .bl 覆盖） */
+
 function _cmpBall(n, isBlue, isHit, drawn){
-  let num=String(n).padStart(2,'0');
-  let base='display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;border-radius:50%;font-size:12px;font-weight:800;line-height:1;flex-shrink:0;margin:1px;';
+  let num = String(n).padStart(2,'0');
+  let ballClass = isBlue ? 'ball-blue' : 'ball-red';
   if(!drawn){
-    // 未开奖：正常红/蓝
-    let bg=isBlue?'#2980b9':'#c0392b';
-    return `<span style="${base}background:${bg};color:#fff;border:2px solid transparent">${num}</span>`;
+    return `<span class="cmp-ball ${ballClass}">${num}</span>`;
   }
   if(isHit){
-    // 命中：金色高亮（蓝球命中用亮蓝金边）
-    if(isBlue){
-      return `<span title="命中" style="${base}background:linear-gradient(145deg,#5dade2,#1a5276);color:#fff;border:2px solid #fff;box-shadow:0 0 0 2px #f1c40f,0 0 14px rgba(241,196,15,.9);transform:scale(1.1)">${num}</span>`;
-    }
-    return `<span title="命中" style="${base}background:linear-gradient(145deg,#f1c40f,#e67e22);color:#1a1000;border:2px solid #fff;box-shadow:0 0 0 2px #f39c12,0 0 14px rgba(241,196,15,.95);transform:scale(1.1)">${num}</span>`;
+    return `<span class="cmp-ball ${ballClass} ball-hit" title="命中">${num}</span>`;
   }
-  // 未中：灰暗
-  let bg=isBlue?'#1a3a55':'#5a2a2a';
-  return `<span style="${base}background:${bg};color:#8899aa;border:2px solid #2a3a4a;opacity:0.45">${num}</span>`;
+  return `<span class="cmp-ball ${ballClass} ball-miss">${num}</span>`;
 }
+
 function filterComparison(){
   let issue=document.getElementById('cmp-issue')?.value||'';
   let batch=document.getElementById('cmp-batch')?.value||'';
   let filtered=CMP.filter(c=>(!issue||c.target_issue===issue)&&(!batch||String(c.batch_id)===String(batch)));
-  let div=document.getElementById('cmp-results');if(!div)return;
+  let div=document.getElementById('cmp-results');
+  if(!div) return;
+
+  if(!filtered.length){
+    div.innerHTML='<div style="padding:32px;text-align:center;color:var(--text-muted);font-size:13px">暂无保存的推演快照。可在推理页计算后点击上方「保存对照」记录快照。</div>';
+    return;
+  }
+
   let h='';
   filtered.forEach(c=>{
-    let isCompound=c.entry_type==='compound'||(c.reds_count&&c.reds_count>6);
-    let predReds=_cmpParseReds(c);
-    let predBlues=_cmpParseBlues(c);
-    let actualReds=Array.isArray(c.actual_reds)?c.actual_reds.map(Number).filter(n=>n>0):[];
-    let drawn=!!(c.drawn===true || actualReds.length===6);
-    let aSet=new Set(actualReds);
-    let hitReds=new Set(drawn?predReds.filter(n=>aSet.has(Number(n))):[]);
-    let hitBlues=new Set();
+    let isCompound = c.entry_type==='compound'||(c.reds_count&&c.reds_count>6);
+    let predReds = _cmpParseReds(c);
+    let predBlues = _cmpParseBlues(c);
+    let actualReds = Array.isArray(c.actual_reds)?c.actual_reds.map(Number).filter(n=>n>0):[];
+    let drawn = !!(c.drawn===true || actualReds.length===6);
+    let aSet = new Set(actualReds);
+    let hitReds = new Set(drawn?predReds.filter(n=>aSet.has(Number(n))):[]);
+    let hitBlues = new Set();
     if(drawn && c.actual_blue!=null && c.actual_blue!==''){
       let ab=Number(c.actual_blue);
-      hitBlues=new Set(predBlues.filter(b=>Number(b)===ab));
+      hitBlues = new Set(predBlues.filter(b=>Number(b)===ab));
     }
-    // 预测行
-    let predBalls=predReds.map(n=>_cmpBall(n,false,hitReds.has(Number(n)),drawn)).join('')
+
+    let predBalls = predReds.map(n=>_cmpBall(n,false,hitReds.has(Number(n)),drawn)).join('')
       + predBlues.map(b=>_cmpBall(b,true,hitBlues.has(Number(b)),drawn)).join('');
-    // 实际行（已开奖）
-    let actualHtml='';
+
+    let actualHtml = '';
     if(drawn){
-      let predSet=new Set(predReds.map(Number));
-      let aBalls=actualReds.map(n=>_cmpBall(n,false,predSet.has(Number(n)),true)).join('');
-      let aBlueHit=predBlues.some(b=>Number(b)===Number(c.actual_blue));
-      aBalls+=_cmpBall(c.actual_blue,true,aBlueHit,true);
-      actualHtml=`<div class="cmp-balls"><span class="lbl">实际</span>${aBalls}</div>`;
+      let predSet = new Set(predReds.map(Number));
+      let aBalls = actualReds.map(n=>_cmpBall(n,false,predSet.has(Number(n)),true)).join('');
+      let aBlueHit = predBlues.some(b=>Number(b)===Number(c.actual_blue));
+      aBalls += _cmpBall(c.actual_blue, true, aBlueHit, true);
+      actualHtml = `<div class="cmp-balls"><span style="font-size:11px;color:var(--text-muted);width:32px">开奖</span>${aBalls}</div>`;
     }
-    let statusBadge=drawn
-      ? `<span class="cmp-badge drawn">已开奖</span>`
-      : `<span class="cmp-badge pending">未开奖</span>`;
-    let hr=hitReds.size, hb=hitBlues.size?1:0;
-    let needR=isCompound?(c.reds_count||predReds.length||6):6;
-    let hitScore=drawn?(`命中 红 ${hr}/${needR} · 蓝 ${hb?'✓':'✗'}`):'待开奖';
-    let hitColor=drawn?(hr>=3?'#2ecc71':(hr>=1?'#f1c40f':'#7f8fa6')):'#7f8fa6';
-    let rankDisplay=isCompound?('复式'+c.rank):('#'+c.rank);
-    let cons=c.consistency!=null?(c.consistency*100).toFixed(0)+'%':'—';
-    h+=`<div class="cmp-row">
+
+    let statusTag = drawn ? '<span class="tag tag-ok">已开奖</span>' : '<span class="tag tag-neutral">未开奖</span>';
+    let hr = hitReds.size, hb = hitBlues.size?1:0;
+    let needR = isCompound?(c.reds_count||predReds.length||6):6;
+    let hitScore = drawn ? `命中 红 ${hr}/${needR} · 蓝 ${hb?'✓':'✗'}` : '待开奖核对';
+    let hitTagClass = drawn ? (hr>=3 ? 'tag-ok' : (hr>=1 ? 'tag-warn' : 'tag-neutral')) : 'tag-neutral';
+    let rankDisplay = isCompound ? ('复式 '+c.rank) : ('#'+c.rank);
+    let cons = c.consistency!=null ? (c.consistency*100).toFixed(0)+'%' : '—';
+
+    h += `<div class="cmp-row">
       <div class="cmp-meta">
-        <span style="color:#5a6a8a">批次 #${c.batch_id}</span>
-        <span style="color:#e0e6f0;font-weight:700">期 ${c.target_issue}</span>
-        <span style="color:#f1c40f;font-weight:700">${rankDisplay}</span>
-        ${statusBadge}
-        <span style="margin-left:auto;color:#7f8fa6;font-size:12px">自洽 ${cons}</span>
-        <span style="color:${hitColor};font-size:13px;font-weight:700">${hitScore}</span>
+        <span style="font-family:var(--font-mono);color:var(--text-muted)">批次 #${c.batch_id}</span>
+        <span style="font-weight:600;color:var(--text-primary)">第 ${c.target_issue} 期</span>
+        <span style="font-weight:600;color:var(--luxi-gold)">${rankDisplay}</span>
+        ${statusTag}
+        <span style="margin-left:auto;font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">自洽度 ${cons}</span>
+        <span class="tag ${hitTagClass}">${hitScore}</span>
       </div>
-      <div class="cmp-balls"><span class="lbl">预测</span>${predBalls}</div>
+      <div class="cmp-balls"><span style="font-size:11px;color:var(--text-muted);width:32px">推演</span>${predBalls}</div>
       ${actualHtml}
     </div>`;
   });
-  if(!h)h='<div style="color:#5a6a8a;padding:10px;text-align:center">暂无匹配记录</div>';
   div.innerHTML=h;
 }
+
 function rd(d){
-  let cp=d.compound_plans;if(!cp||!cp[0]||!cp[0].build_steps)return;
-  let st=cp[0].build_steps,sx=$('sx'),sl=$('sl');sx.style.display='block';sl.innerHTML='';
+  let cp=d.compound_plans;
+  if(!cp||!cp[0]||!cp[0].build_steps) return;
+  let st=cp[0].build_steps, sx=$('sx'), sl=$('sl');
+  if(!sx||!sl) return;
+  sx.style.display='block';
+  sl.innerHTML='';
   let mc=Math.max(...st.map(s=>s.coverage))||1;
   st.forEach(s=>{
-    let pct=(s.coverage*100).toFixed(2),bw=Math.max(1,(s.coverage/mc*100));
-    let cl=s.action==='加红球'?'#e74c3c':s.action==='加蓝球'?'#3498db':'#7f8fa6';
-    let bh=s.ball?`<span class="sbl" style="background:${cl}">${String(s.ball).padStart(2,'0')}</span>`:'';
-    sl.innerHTML+=`<div class="sr"><span class="sn">#${s.step}</span>${bh}<span style="min-width:50px">${s.action}</span>
-      <span style="color:#7f8fa6;min-width:35px">${s.reds_count}红</span>
-      <div class="sba"><div class="sbf2" style="width:${bw}%;background:${cl}"></div></div><span class="sp">${pct}%</span></div>`;
+    let pct=(s.coverage*100).toFixed(2), bw=Math.max(1,(s.coverage/mc*100));
+    let cl=s.action==='加红球'?'var(--product-accent)':s.action==='加蓝球'?'var(--product-accent-2)':'var(--text-muted)';
+    let bh=s.ball?`<span class="ball ball-sm" style="background:${cl};margin-right:4px">${String(s.ball).padStart(2,'0')}</span>`:'';
+    sl.innerHTML+=`<div style="display:flex;align-items:center;padding:4px 6px;font-size:11px;gap:6px;border-bottom:1px solid var(--border-subtle)">
+      <span style="color:var(--text-muted);font-family:var(--font-mono);min-width:20px">#${s.step}</span>
+      ${bh}
+      <span style="min-width:54px">${s.action}</span>
+      <span style="color:var(--text-muted);min-width:40px">${s.reds_count}红</span>
+      <div class="meter-track" style="flex:1;height:6px;margin:0"><div class="meter-fill" style="width:${bw}%;background:${cl}"></div></div>
+      <span style="min-width:40px;text-align:right;font-family:var(--font-mono)">${pct}%</span>
+    </div>`;
   });
 }
 
-  // ── 历史趋势 ──
+// ── 历史趋势与图表口径 ──
 async function loadHistory(){
-  H=await get('/api/predict/history?_t='+Date.now());let d=H;
-  if(!d.red_freq||!d.red_freq.length)return;
-  let h='';
-  // 三区分布概况 + 蓝球四区
-  let tZ1=d.zone_series.reduce((s,x)=>s+x.z1,0),tZ2=d.zone_series.reduce((s,x)=>s+x.z2,0),tZ3=d.zone_series.reduce((s,x)=>s+x.z3,0),nZ=d.zone_series.length||1;
-  // 蓝球四区(带数据校验)
-  let bZ1=0,bZ2=0,bZ3=0,bZ4=0;
+  H=await get('/api/predict/history?_t='+Date.now());
+  let d=H;
+  if(!d||!d.red_freq||!d.red_freq.length) return;
+
+  let tZ1=d.zone_series.reduce((s,x)=>s+x.z1,0), tZ2=d.zone_series.reduce((s,x)=>s+x.z2,0), tZ3=d.zone_series.reduce((s,x)=>s+x.z3,0), nZ=d.zone_series.length||1;
+
+  let bZ1=0, bZ2=0, bZ3=0, bZ4=0;
   if(d.blue_freq&&Array.isArray(d.blue_freq)){
     d.blue_freq.forEach(function(b){
       if(b&&typeof b.num==='number'){
@@ -586,117 +779,205 @@ async function loadHistory(){
     });
   }
   let bT=bZ1+bZ2+bZ3+bZ4||1;
-  h+=`<h3>区间分布概况</h3>
-  <div style="display:flex;gap:10px;margin-bottom:10px">
-    <div style="flex:1;background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:10px">
-      <div style="font-size:10px;color:#e74c3c;font-weight:700;margin-bottom:6px">🔴 红球三区</div>
-      <div style="display:flex;gap:6px">
-        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#e74c3c">${(tZ1/nZ).toFixed(2)}</div><div style="font-size:9px;color:#7f8fa6">1-11</div></div>
-        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#f39c12">${(tZ2/nZ).toFixed(2)}</div><div style="font-size:9px;color:#7f8fa6">12-22</div></div>
-        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#3498db">${(tZ3/nZ).toFixed(2)}</div><div style="font-size:9px;color:#7f8fa6">23-33</div></div>
-      </div>
+
+  let h = '';
+
+  // 1. 三区与蓝球分布概况卡片
+  h += `<div class="section-title-bar">
+    <div class="section-title">
+      <span>宏观区间分布</span>
+      <span class="section-desc">历史全量样本均值与四区分位</span>
     </div>
-    <div style="flex:1;background:#111827;border:1px solid #1e2d50;border-radius:8px;padding:10px">
-      <div style="font-size:10px;color:#3498db;font-weight:700;margin-bottom:6px">🔵 蓝球四区</div>
-      <div style="display:flex;gap:6px">
-        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#2ecc71">${(bZ1/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">1-4</div></div>
-        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#1abc9c">${(bZ2/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">5-8</div></div>
-        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#9b59b6">${(bZ3/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">9-12</div></div>
-        <div style="flex:1;text-align:center"><div style="font-size:20px;font-weight:700;color:#e91e63">${(bZ4/bT*100).toFixed(1)}%</div><div style="font-size:9px;color:#7f8fa6">13-16</div></div>
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3);margin-bottom:var(--space-3)">
+    <div class="card">
+      <div class="card-header"><span class="card-title">红球三区平均个数</span></div>
+      <div style="display:flex;gap:8px;text-align:center">
+        <div style="flex:1;background:var(--bg-sunken);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:18px;font-weight:700;color:var(--product-accent);font-family:var(--font-mono)">${(tZ1/nZ).toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">一区 (01-11)</div>
+        </div>
+        <div style="flex:1;background:var(--bg-sunken);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:18px;font-weight:700;color:var(--luxi-gold);font-family:var(--font-mono)">${(tZ2/nZ).toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">二区 (12-22)</div>
+        </div>
+        <div style="flex:1;background:var(--bg-sunken);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:18px;font-weight:700;color:var(--product-accent-2);font-family:var(--font-mono)">${(tZ3/nZ).toFixed(2)}</div>
+          <div style="font-size:11px;color:var(--text-muted)">三区 (23-33)</div>
+        </div>
       </div>
+      <div class="chart-footnote">口径：全量 ${nZ} 期实际开奖分布，理论期望每区为 2.00 个。</div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><span class="card-title">蓝球四区分位频次比</span></div>
+      <div style="display:flex;gap:8px;text-align:center">
+        <div style="flex:1;background:var(--bg-sunken);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:18px;font-weight:700;color:var(--text-primary);font-family:var(--font-mono)">${(bZ1/bT*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text-muted)">01-04</div>
+        </div>
+        <div style="flex:1;background:var(--bg-sunken);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:18px;font-weight:700;color:var(--text-primary);font-family:var(--font-mono)">${(bZ2/bT*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text-muted)">05-08</div>
+        </div>
+        <div style="flex:1;background:var(--bg-sunken);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:18px;font-weight:700;color:var(--text-primary);font-family:var(--font-mono)">${(bZ3/bT*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text-muted)">09-12</div>
+        </div>
+        <div style="flex:1;background:var(--bg-sunken);border-radius:var(--radius-sm);padding:8px">
+          <div style="font-size:18px;font-weight:700;color:var(--text-primary);font-family:var(--font-mono)">${(bZ4/bT*100).toFixed(1)}%</div>
+          <div style="font-size:11px;color:var(--text-muted)">13-16</div>
+        </div>
+      </div>
+      <div class="chart-footnote">口径：全量 ${bT} 次蓝球落位统计，理论均衡值为 25.0%。</div>
     </div>
   </div>`;
-  // 历史趋势
-  h+=`<h3>历史趋势 <small>红蓝频率+奖池</small></h3>`;
-  h+=`<div class="card2" style="padding:6px 4px"><div style="display:flex;gap:6px">
-    <div style="flex:2;min-width:0">${d.red_chart_svg||''}</div>
-    <div style="flex:1;min-width:0">${d.blue_chart_svg||''}</div>
-  </div></div>`;
-  h+=`<div class="card2" style="padding:6px 4px"><div class="ct">奖池历史曲线 (${d.pool_dense.length}期全量)</div>${d.pool_chart_svg||''}</div>`;
-  // Regime分布
-  let cols=['#e74c3c','#3498db','#f39c12','#2ecc71','#9b59b6'],nams=['崩溃态','蓄水态','大奖态','增长态','成熟态'];
-  h+=`<div class="card2"><div class="ct">市场状态分布 (GMM 5类)</div><div class="rg">`;
+
+  // 2. 频次图表卡片
+  h += `<div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">历史出号频次分布</span>
+      <span class="tag tag-neutral">红球 33 号 + 蓝球 16 号</span>
+    </div>
+    <div style="display:flex;gap:12px;overflow-x:auto">
+      <div style="flex:2;min-width:0">${d.red_chart_svg||''}</div>
+      <div style="flex:1;min-width:0">${d.blue_chart_svg||''}</div>
+    </div>
+    <div class="chart-footnote">
+      <strong>口径说明：</strong>主序列（红球）与次序列（蓝球）累计出号次数柱状分布。网格线统一取 --border-subtle，严格禁止 3D 与过饱和渐变填充。
+    </div>
+  </div>`;
+
+  // 3. 奖池走势曲线
+  h += `<div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">奖池规模全量走势 (${d.pool_dense.length} 期样本)</span>
+      <span class="tag tag-neutral">单位：亿元</span>
+    </div>
+    <div style="min-height:110px">${d.pool_chart_svg||''}</div>
+    <div class="chart-footnote">
+      <strong>口径说明：</strong>数据源自中国福彩官网开奖公告历史结存奖池金额。平滑面积采用不超过 0.25 透明度沉浸过渡。
+    </div>
+  </div>`;
+
+  // 4. Regime 状态分布
+  let cols=['var(--product-accent)','var(--product-accent-2)','var(--luxi-gold)','var(--text-ok)','var(--luxi-cyan)'];
+  let nams=['崩溃态','蓄水态','大奖态','增长态','成熟态'];
+  h += `<div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">市场宏观状态分布 (GMM 5 阶隐马尔可夫分型)</span>
+      <span class="tag tag-neutral">无监督聚类</span>
+    </div>
+    <div class="regime-grid">`;
   d.regime_dist.forEach(r=>{
-    let sh='';if(r.samples)r.samples.forEach(s=>{
-      let rs=s.reds.map(n=>`<span class="snm snr">${String(n).padStart(2,'0')}</span>`).join('');
-      sh+=`<div style="font-size:8px;color:#5a6a8a;text-align:center">${s.issue}</div><div class="sn2">${rs}<span class="snm snb">${String(s.blue).padStart(2,'0')}</span></div>`;
+    let sh='';
+    if(r.samples) r.samples.forEach(s=>{
+      let rs=s.reds.map(n=>`<span class="ball ball-red" style="width:16px;height:16px;font-size:8px">${String(n).padStart(2,'0')}</span>`).join('');
+      let bs=`<span class="ball ball-blue" style="width:16px;height:16px;font-size:8px">${String(s.blue).padStart(2,'0')}</span>`;
+      sh+=`<div style="font-size:9px;color:var(--text-muted);margin-top:4px">${s.issue}</div><div style="display:flex;justify-content:center;gap:1px;margin-top:1px">${rs}${bs}</div>`;
     });
-    h+=`<div class="rc"><div class="rv" style="color:${cols[r.regime]}">${r.pct}%</div><div class="rl">${nams[r.regime]}</div><div class="rs">${r.count}期</div>${sh}</div>`;
+    h += `<div class="regime-cell">
+      <div class="regime-pct" style="color:${cols[r.regime]}">${r.pct}%</div>
+      <div class="regime-name">${nams[r.regime]}</div>
+      <div class="regime-count">${r.count} 期样本</div>
+      ${sh}
+    </div>`;
   });
-  h+=`</div></div>`;
-  // 反向回溯 T_bwd (参与预测计算: batch_validate中做T_bwd评分调整)
+  h += `</div>
+    <div class="chart-footnote">
+      <strong>口径说明：</strong>基于历史每期奖池变量、投注额及头奖注数的三维 GMM 分类，刻画不同市场流动性下的状态转移。
+    </div>
+  </div>`;
+
+  // 5. 反向回溯
   try{
     let bt=await get('/api/predict/backtrack?steps=5');
     if(bt&&bt.chain){
-      h+=`<h3>反向回溯 <small>T_bwd已参与预测评分</small></h3>
-      <div class="card2"><div style="display:flex;align-items:center;gap:1px;overflow-x:auto;padding:6px 2px">`;
-      let colsC=['#e74c3c','#3498db','#f39c12','#2ecc71','#9b59b6'];
-      let namesC=['崩溃态','蓄水态','大奖态','增长态','成熟态'];
+      h += `<div class="chart-card">
+        <div class="chart-header">
+          <span class="chart-title">状态转移反向回溯 (T_bwd 动力链条)</span>
+          <span class="tag tag-neutral">5步状态回溯</span>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px;overflow-x:auto;padding:4px 0">`;
       bt.chain.forEach(function(c,i){
-        let col=colsC[c.regime]||'#7f8fa6';
-        let isLast=i===bt.chain.length-1;
         let isCurrent=i===0;
-        let arrow=i>0?'<span style="color:#5a6a8a;font-size:12px;flex-shrink:0">→</span>':'';
-        let label=isCurrent?'当前期':'-'+i+'步';
-        h+=arrow+'<div style="flex:1;text-align:center;min-width:80px;background:'+(isCurrent?'#1a2a1a':'#111827')+';border:1px solid '+(isCurrent?'#2ecc71':'#1e2d50')+';border-radius:8px;padding:6px 4px">';
-        h+=`<div style="font-size:8px;color:#7f8fa6">${label}</div>`;
-        h+=`<div style="font-size:16px;font-weight:700;color:${col}">${c.name}</div>`;
-        if(c.prob!==undefined)h+=`<div style="font-size:8px;color:#5a6a8a">P=${(c.prob*100).toFixed(0)}%</div>`;
-        if(c.stat)h+=`<div style="font-size:7px;color:#7f8fa6;margin-top:2px">💰${c.stat.avg_pool?.toFixed(1)||'?'}亿 🎯${Math.round(c.stat.avg_prize1||0)}注</div>`;
-        h+=`</div>`;
+        let arrow=i>0?'<span style="color:var(--text-muted);font-size:12px;flex-shrink:0">←</span>':'';
+        let label=isCurrent?'当前目标期':'-'+i+' 步';
+        h += arrow + `<div style="flex:1;min-width:90px;text-align:center;background:var(--bg-sunken);border:1px solid ${isCurrent?'var(--color-primary)':'var(--border-subtle)'};border-radius:var(--radius-sm);padding:8px 4px">
+          <div style="font-size:10px;color:var(--text-muted)">${label}</div>
+          <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin:2px 0">${c.name}</div>
+          ${c.prob!==undefined?`<div style="font-size:10px;color:var(--text-secondary)">转移概率 ${(c.prob*100).toFixed(0)}%</div>`:''}
+        </div>`;
       });
-      h+=`</div></div>`;
+      h += `</div>
+        <div class="chart-footnote">口径：基于转移矩阵后向概率，反推当期状态发生的前序条件链，已纳入综合评分调整。</div>
+      </div>`;
     }
   }catch(e){}
-  // 追加到历史区域（独立容器，不会被render覆盖）
+
   let hs=document.getElementById('history-section');
-  if(hs){hs.innerHTML=h;H_HTML=h;}
-  // 每期号码分布（追加到同一历史区域）
+  if(hs){ hs.innerHTML=h; H_HTML=h; }
+
+  // 加载 33+16 号码矩阵表格
   loadZone(d);
 }
 
 function loadZone(d){
-  let h='',periodsTotal=d.zone_series.length||3481;
-  let tZ1=d.zone_series.reduce((s,x)=>s+x.z1,0),tZ2=d.zone_series.reduce((s,x)=>s+x.z2,0),tZ3=d.zone_series.reduce((s,x)=>s+x.z3,0),nZ=periodsTotal;
-  h+=`<div class="card2"><div class="ct">红球三区平均分布</div><div class="zs">
-    <div class="zc"><div class="zv" style="color:#e74c3c">${(tZ1/nZ).toFixed(2)}</div><div class="zl">一区 1-11</div></div>
-    <div class="zc"><div class="zv" style="color:#f39c12">${(tZ2/nZ).toFixed(2)}</div><div class="zl">二区 12-22</div></div>
-    <div class="zc"><div class="zv" style="color:#3498db">${(tZ3/nZ).toFixed(2)}</div><div class="zl">三区 23-33</div></div>
-  </div></div>`;
-  h+=`<h3>每期号码分布 <small>33红+16蓝网格</small></h3>`;
-  h+=`<div id="zone-table-wrap" class="card2"><div class="ct">每期号码分布 (${periodsTotal}期)</div>
-    <div style="display:flex;gap:6px;margin-bottom:6px">
-      <button class="btn" style="font-size:10px;padding:3px 8px" onclick="zonePage(-1)">◀ 上一页</button>
-      <span id="zone-page-info" style="font-size:10px;color:#7f8fa6;align-self:center">第1页</span>
-      <button class="btn" style="font-size:10px;padding:3px 8px" onclick="zonePage(1)">下一页 ▶</button>
+  let periodsTotal=d.zone_series.length||3481;
+  let h = `<div class="chart-card">
+    <div class="chart-header">
+      <span class="chart-title">每期号码分布矩阵 (33红 + 16蓝网格)</span>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="btn btn-secondary" style="height:24px;padding:0 8px;font-size:10px" onclick="zonePage(-1)">◀ 上一页</button>
+        <span id="zone-page-info" style="font-size:11px;color:var(--text-muted);font-family:var(--font-mono)">第 1 页</span>
+        <button class="btn btn-secondary" style="height:24px;padding:0 8px;font-size:10px" onclick="zonePage(1)">下一页 ▶</button>
+      </div>
     </div>
-    <div class="zt" style="max-height:400px;overflow-y:auto"><table><thead><tr>`;
-  for(let n=1;n<=33;n++) h+=`<th style="color:#e74c3c;font-size:6px;font-weight:400;padding:1px 0">${String(n).padStart(2,'0')}</th>`;
-  h+=`<th style="width:3px;padding:0"></th>`;
-  for(let n=1;n<=16;n++) h+=`<th style="color:#3498db;font-size:6px;font-weight:400;padding:1px 0">${String(n).padStart(2,'0')}</th>`;
-  h+=`<th class="iss-col">期</th></tr></thead><tbody id="zone-tbody"></tbody></table></div></div>`;
+    <div class="zone-table-container">
+      <table class="zone-table">
+        <thead>
+          <tr>`;
+  for(let n=1;n<=33;n++) h+=`<th style="color:var(--product-accent)">${String(n).padStart(2,'0')}</th>`;
+  h+=`<th style="width:4px;padding:0"></th>`;
+  for(let n=1;n<=16;n++) h+=`<th style="color:var(--product-accent-2)">${String(n).padStart(2,'0')}</th>`;
+  h+=`<th style="width:60px;text-align:right;padding-right:6px">开奖期次</th></tr></thead>
+        <tbody id="zone-tbody"></tbody>
+      </table>
+    </div>
+    <div class="chart-footnote">口径：历史全部期次开奖落点热力，红蓝点亮代表出号，空心为未出。单页展示 200 期。</div>
+  </div>`;
+
   let hs2=document.getElementById('history-section');
-  if(hs2)hs2.innerHTML+=h;
+  if(hs2) hs2.innerHTML+=h;
   zonePage(0);
 }
 
 async function zonePage(dir){
   let info=document.getElementById('zone-page-info');
-  if(!info)return;
+  if(!info) return;
   let m=info.textContent.match(/\d+/);
   let page=dir===0?1:parseInt(m?m[0]:1)+dir;
-  if(page<1)return;
+  if(page<1) return;
   let per=200;
   try{
     let d=await(await fetch('/api/periods?page='+page+'&per_page='+per)).json();
-    document.getElementById('zone-page-info').textContent='第'+page+'页/'+Math.ceil(d.total/per)+'页';
-    let tb=document.getElementById('zone-tbody');if(!tb)return;
+    document.getElementById('zone-page-info').textContent='第 '+page+' / '+Math.ceil(d.total/per)+' 页';
+    let tb=document.getElementById('zone-tbody');
+    if(!tb) return;
     tb.innerHTML='';
     d.periods.forEach(p=>{
       let rs=new Set(p.reds);
-      let r='';for(let n=1;n<=33;n++){let on=rs.has(n);r+='<td><span class="'+(on?'cell-on':'cell-off')+'">'+(on?String(n).padStart(2,'0'):'·')+'</span></td>';}
-      let b='';for(let n=1;n<=16;n++){let on=p.blue===n;b+='<td><span class="'+(on?'cell-b-on':'cell-b-off')+'">'+(on?String(n).padStart(2,'0'):'·')+'</span></td>';}
-      tb.innerHTML+='<tr>'+r+'<td style="width:3px;padding:0"></td>'+b+'<td class="iss-col">'+p.issue+'</td></tr>';
+      let r='';
+      for(let n=1;n<=33;n++){
+        let on=rs.has(n);
+        r+='<td><span class="'+(on?'cell-dot-on-red':'cell-dot-off')+'">'+(on?String(n).padStart(2,'0'):'·')+'</span></td>';
+      }
+      let b='';
+      for(let n=1;n<=16;n++){
+        let on=p.blue===n;
+        b+='<td><span class="'+(on?'cell-dot-on-blue':'cell-dot-off')+'">'+(on?String(n).padStart(2,'0'):'·')+'</span></td>';
+      }
+      tb.innerHTML+='<tr>'+r+'<td style="width:4px;padding:0"></td>'+b+'<td style="text-align:right;padding-right:6px;color:var(--text-muted)">'+p.issue+'</td></tr>';
     });
   }catch(e){}
 }

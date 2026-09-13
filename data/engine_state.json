@@ -1,10 +1,10 @@
 {
-  "last_full_refit": "2026-08-18T18:41:44",
-  "latest_issue": "26094",
-  "N": 3491,
-  "mode": "soft",
+  "last_full_refit": "2026-09-13T14:08:56",
+  "latest_issue": "26105",
+  "N": 3502,
+  "mode": "full",
   "boot": true,
-  "updated_at": "2026-08-18T18:41:50",
+  "updated_at": "2026-09-13T14:08:56",
   "forward_cost_alpha": 0.0,
   "alpha_var_share": 0.0,
   "alpha_train_range": [
@@ -20,5 +20,5 @@
     "applied_from": "cutover_go",
     "updated_at": "2026-08-11T17:01:05"
   },
-  "last_soft_extend": "2026-08-18T18:41:50"
+  "last_soft_extend": "2026-09-13T14:00:29"
 }

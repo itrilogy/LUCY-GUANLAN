@@ -1,0 +1,222 @@
+/* =============================================================================
+   LUXI Design System — tokens.css
+   鹿溪联合创新实验室 · LUXI Joint Innovation Lab
+   理数·三思 · 观澜 GuanLan (双色球市场状态与组合结构分析)
+   ========================================================================== */
+
+/* ── 1. Core（品牌四色 · VI 规范，产品不得覆写） ───────────────────────────── */
+:root {
+  --luxi-green: #0D5E42;
+  --origin-white: #F5F7FA;
+  --luxi-cyan: #00D2FF;
+  --luxi-gold: #F1C40F;
+
+  /* 兼容别名 */
+  --evolution-cyan: var(--luxi-cyan);
+  --title-gold: var(--luxi-gold);
+
+  /* 支撑 / 状态色（面色） */
+  --alert-red: #E74C3C;
+  --info-blue: #3498DB;
+  --state-up: #22C55E;
+  --state-down: #EF4444;
+  --state-flat: #94A3B8;
+
+  /* 控件高度 5 档（来自 LUXI v1.1 修正案） */
+  --control-xs: 28px;   /* 表格行内、密集工具条 */
+  --control-sm: 32px;   /* 次级控件、密集工作台 */
+  --control-md: 36px;   /* 默认按钮 / 输入 */
+  --control-lg: 44px;   /* 表单主动作 */
+  --control-xl: 48px;   /* 页面级大行动 */
+}
+
+/* ── 2. Semantic —— 亮主题（默认） ────────────────────────────────────────── */
+:root {
+  /* 文本 */
+  --text-primary: #1A2428;
+  --text-secondary: #42525C;
+  --text-muted: #64748B;
+  --text-inverse: #F5F7FA;
+
+  /* 文字专用色（v1.1 面字分离：作文字时保证 ≥ 4.5:1） */
+  --text-ok:      #15803D;   /* 合格 / 正向，6.1:1 on --bg-card */
+  --text-danger:  #A92C20;   /* 危险 / 超标，6.7:1 */
+  --text-info:    #1D6FA5;   /* 信息 / 提示，5.4:1 */
+  --text-warn:    #8A6A05;   /* 警示 / 关注，5.9:1 */
+
+  /* 表面 */
+  --bg-page: #FFFFFF;
+  --bg-card: #F5F7FA;
+  --bg-raised: #FFFFFF;
+  --bg-sunken: #EEF2F5;
+
+  /* 输入框专用（v1.1 修正案） */
+  --input-bg:            #EEF2F5;
+  --input-border:        rgba(13, 94, 66, 0.18);
+  --input-border-focus:  var(--luxi-cyan);
+  --input-placeholder:   var(--text-muted);
+
+  /* 描边 */
+  --border-subtle: rgba(13, 94, 66, 0.10);
+  --border-line: rgba(13, 94, 66, 0.18);
+  --border-strong: rgba(13, 94, 66, 0.32);
+
+  /* 品牌渐变 */
+  --gradient-brand: linear-gradient(135deg, #127A55 0%, #0D5E42 100%);
+  --gradient-stream: linear-gradient(90deg, rgba(0,210,255,0.15) 0%, rgba(0,210,255,0.95) 50%, rgba(124,240,255,0.55) 100%);
+  --gradient-glass: linear-gradient(180deg, rgba(255,255,255,0.72) 0%, rgba(245,247,250,0.65) 100%);
+
+  /* 语义别名 */
+  --color-primary: var(--luxi-green);
+  --color-primary-hover: #127A55;
+  --color-primary-active: #0A4A33;
+  --color-accent: var(--luxi-cyan);
+  --color-highlight: var(--luxi-gold);
+  --color-danger: var(--alert-red);
+  --color-info: var(--info-blue);
+
+  /* 产品 accent 缺省 */
+  --product-accent: #E74C3C;
+  --product-accent-2: #3498DB;
+}
+
+/* ── 3. Semantic —— 深色主题（深林底） ───────────────────────────────────── */
+[data-theme="dark"] {
+  --text-primary: #E6EFEA;
+  --text-secondary: #C3D3CB;
+  --text-muted: #8FA3BF;
+  --text-inverse: #121A17;
+
+  /* 深色文字专用色（v1.1 面字分离） */
+  --text-ok:      #4ADE88;
+  --text-danger:  #F09185;
+  --text-info:    #8AEBFF;
+  --text-warn:    #FAD749;
+
+  --bg-page: #121A17;
+  --bg-card: #1A2428;
+  --bg-raised: #22302B;
+  --bg-sunken: #0E1613;
+
+  --input-bg:            #0E1613;
+  --input-border:        rgba(245, 247, 250, 0.16);
+  --input-border-focus:  var(--luxi-cyan);
+  --input-placeholder:   #64748B;
+
+  --border-subtle: rgba(245, 247, 250, 0.08);
+  --border-line: rgba(245, 247, 250, 0.14);
+  --border-strong: rgba(245, 247, 250, 0.28);
+
+  --gradient-glass: linear-gradient(180deg, rgba(26,36,40,0.65) 0%, rgba(18,26,23,0.72) 100%);
+  --color-primary: #14805C;
+  --color-primary-hover: #17946B;
+  --color-primary-active: #0D5E42;
+}
+
+/* 沉浸主题（纯黑底 + 暖金字，数据与夜景分析） */
+[data-theme="ink"] {
+  --text-primary: #F3EEE6;
+  --text-secondary: rgba(243, 238, 230, 0.78);
+  --text-muted: rgba(243, 238, 230, 0.55);
+  --text-inverse: #0B0C0E;
+
+  --text-ok:      #86EFAC;
+  --text-danger:  #FCA5A5;
+  --text-info:    #7DD3FC;
+  --text-warn:    #FDE047;
+
+  --bg-page: #0B0C0E;
+  --bg-card: #141517;
+  --bg-raised: #1B1D20;
+  --bg-sunken: #08090A;
+
+  --input-bg:            #08090A;
+  --input-border:        rgba(243, 238, 230, 0.16);
+  --input-border-focus:  var(--luxi-cyan);
+  --input-placeholder:   rgba(243, 238, 230, 0.40);
+
+  --border-subtle: rgba(243, 238, 230, 0.08);
+  --border-line: rgba(243, 238, 230, 0.14);
+  --border-strong: rgba(243, 238, 230, 0.26);
+
+  --color-primary: #14805C;
+  --color-primary-hover: #17946B;
+  --color-primary-active: #0D5E42;
+}
+
+/* ── 4. 产品 accent（理数·三思 · 观澜） ──────────────────────────────────── */
+[data-product="guanlan"] {
+  --product-accent: #E74C3C;   /* 红球 / 拥挤度主序列 */
+  --product-accent-2: #3498DB; /* 蓝球 / 辅助序列 */
+}
+
+/* 密度档（表格行高 / 控件高 / 间距系数） */
+[data-density="compact"]     { --density-row: 36px; --density-control: 30px; --density-gap: 8px; }
+[data-density="comfortable"] { --density-row: 44px; --density-control: 36px; --density-gap: 12px; }
+[data-density="sparse"]      { --density-row: 52px; --density-control: 40px; --density-gap: 20px; }
+
+/* ── 5. 字体排印 ─────────────────────────────────────────────────────────── */
+:root {
+  --font-sans-zh: "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", "Noto Sans SC", system-ui, sans-serif;
+  --font-serif-zh: "Songti SC", "Source Han Serif SC", "Noto Serif SC", Georgia, serif;
+  --font-sans-latin: Inter, "SF Pro Text", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --font-body: var(--font-sans-zh);
+  --font-display: var(--font-sans-zh);
+
+  --fs-display: 36px; --lh-display: 1.15;
+  --fs-h1: 24px;      --lh-h1: 1.25;
+  --fs-h2: 20px;      --lh-h2: 1.3;
+  --fs-h3: 16px;      --lh-h3: 1.4;
+  --fs-body: 13px;    --lh-body: 1.6;
+  --fs-body-lg: 15px; --lh-body-lg: 1.6;
+  --fs-small: 12px;   --lh-small: 1.5;
+  --fs-caption: 11px; --lh-caption: 1.45;
+  --fs-micro: 10px;   --lh-micro: 1.4;
+
+  --fw-regular: 400; --fw-medium: 500; --fw-semibold: 600; --fw-bold: 700;
+  --ls-tight: -0.02em; --ls-normal: 0; --ls-wide: 0.06em; --ls-widest: 0.18em;
+}
+
+[data-theme="ink"] {
+  --font-body: var(--font-sans-zh);
+  --font-display: var(--font-serif-zh);
+}
+
+/* ── 6. 空间 · 圆角 · 阴影 ───────────────────────────────────────────────── */
+:root {
+  --space-0: 0;      --space-1: 4px;  --space-2: 8px;   --space-3: 12px;
+  --space-4: 16px;   --space-5: 20px; --space-6: 24px;  --space-8: 32px;
+  --space-10: 40px;  --space-12: 48px;
+
+  --radius-none: 0;   --radius-xs: 4px;  --radius-sm: 6px;
+  --radius-md: 10px;  --radius-lg: 14px; --radius-pill: 999px; --radius-tile: 12px;
+
+  --shadow-xs: 0 1px 2px rgba(13,94,66,0.06);
+  --shadow-sm: 0 2px 8px rgba(13,94,66,0.08);
+  --shadow-md: 0 8px 24px rgba(13,94,66,0.10);
+  --shadow-lg: 0 16px 48px rgba(13,94,66,0.14);
+}
+
+[data-theme="dark"] :root,
+[data-theme="dark"] {
+  --shadow-xs: 0 1px 2px rgba(0,0,0,0.3);
+  --shadow-sm: 0 2px 8px rgba(0,0,0,0.4);
+  --shadow-md: 0 8px 24px rgba(0,0,0,0.5);
+}
+
+/* ── 7. 动效 ─────────────────────────────────────────────────────────────── */
+:root {
+  --dur-instant: 80ms; --dur-fast: 160ms; --dur-base: 240ms;
+  --dur-slow: 400ms;
+  --ease-standard: cubic-bezier(0.2, 0, 0, 1);
+  --ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15);
+}
+
+/* ── 8. 容器尺寸 ─────────────────────────────────────────────────────────── */
+:root {
+  --container-max: 1140px;
+  --header-h: 56px;
+}
