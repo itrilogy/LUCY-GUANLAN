@@ -11,3 +11,4 @@ data/progress.json
 dist/
 build/
 data/features.npz*
+.reasonix/
