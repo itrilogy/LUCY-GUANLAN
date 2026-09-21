@@ -7,6 +7,7 @@ services:
       # 持久化数据（可选挂载）
       - ./data:/app/data
     environment:
-      - SSQ_STARTUP_FETCH=false
+      - TZ=Asia/Shanghai
+      - SSQ_STARTUP_FETCH=auto
       # cutover go 后由 data/eval/scoring_defaults.json 控制默认评分
     restart: unless-stopped

@@ -5,6 +5,7 @@ WORKDIR /app
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
+    tzdata \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
@@ -15,8 +16,9 @@ COPY . .
 ENV PYTHONUNBUFFERED=1
 ENV HOST=0.0.0.0
 ENV PORT=8080
-# 容器内默认不自动外网爬取
-ENV SSQ_STARTUP_FETCH=false
+ENV TZ=Asia/Shanghai
+# 容器启动时按数据时效策略智能判断是否拉取
+ENV SSQ_STARTUP_FETCH=auto
 
 EXPOSE 8080
 
