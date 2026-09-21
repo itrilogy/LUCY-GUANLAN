@@ -146,7 +146,7 @@ FULL_REFIT_DAYS = 7
 
 # ── Web ──
 HOST = "0.0.0.0"
-PORT = 8080
+PORT = int(os.environ.get("PORT", 7166))
 DEBUG = False
 
 # ── 更新调度 ──

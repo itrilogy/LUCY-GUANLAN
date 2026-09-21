@@ -2,7 +2,7 @@ services:
   ssq-predictor:
     build: .
     ports:
-      - "8080:8080"
+      - "7166:7166"
     volumes:
       # 持久化数据（可选挂载）
       - ./data:/app/data

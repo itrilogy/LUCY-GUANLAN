@@ -5,7 +5,7 @@ PYTHON ?= python3
 
 help:
 	@echo "Targets (run inside ssq_predictor/):"
-	@echo "  make serve         # 启动 Web → http://localhost:8080"
+	@echo "  make serve         # 启动 Web → http://localhost:7166"
 	@echo "  make check         # 数据校验 + 引擎冒烟"
 	@echo "  make update        # 爬取 + full 重建 + 预测"
 	@echo "  make data-only     # 仅爬取合并"

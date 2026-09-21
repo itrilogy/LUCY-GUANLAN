@@ -60,7 +60,7 @@ make check
 make serve
 ```
 
-浏览器打开：**http://localhost:8080**
+浏览器打开：**http://localhost:7166**
 
 停止服务：在运行 `make serve` 的终端按 **`Ctrl+C`**。
 
@@ -72,7 +72,7 @@ make serve
 |----|------|
 | **作用** | 启动本地 Flask Web 分析服务 |
 | **等价命令** | `python3 scripts/cli.py serve` |
-| **默认地址** | `http://0.0.0.0:8080` → 本机访问 `http://localhost:8080` |
+| **默认地址** | `http://0.0.0.0:7166` → 本机访问 `http://localhost:7166` |
 | **会做什么** | 加载 `data/` 历史数据与模型；按配置决定是否后台爬取；注册开奖日定时更新；提供页面与 API |
 | **不会做什么** | 不跑 `make test` / `make cutover`；不替代 CLI 全量 `make update`（更新可在页面点「更新」） |
 
@@ -88,7 +88,7 @@ make serve
 
 | 现象 | 处理 |
 |------|------|
-| 端口被占用 | 修改 `config.py` 中 `PORT`，或结束占用 8080 的进程 |
+| 端口被占用 | 修改 `config.py` 中 `PORT` 或指定环境变量 `PORT`，或结束占用进程 |
 | 页面无 LOGO | 确认 `web/static/brand/` 完整（自包含，无外链） |
 | 依赖缺失 | 重新 `pip install -r requirements.txt` |
 | 必须在本目录执行 | 在含有 `Makefile` 的 `LUCY-GUANLAN/` 下运行 |
@@ -181,11 +181,11 @@ export SSQ_FEATURES_CACHE=0                    # 关闭特征缓存
 
 ```bash
 docker compose up --build
-# 访问 http://localhost:8080
+# 访问 http://localhost:7166
 # 单 worker gunicorn（与工程约定一致）
 ```
 
-数据可挂载 `./data` 持久化。容器内默认不自动外网爬取（见 `docker-compose.yml`）。
+数据可挂载 `./data` 持久化。容器启动默认策略由 `SSQ_STARTUP_FETCH` 控制（见 `docker-compose.yml`）。
 
 ---
 
